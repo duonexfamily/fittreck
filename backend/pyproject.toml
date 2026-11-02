@@ -12,6 +12,7 @@ dependencies = [
     "alembic",
     "pydantic>=2,<3",
     "pydantic-settings>=2,<3",
+    "tzdata>=2026.6",
 ]
 
 [dependency-groups]
