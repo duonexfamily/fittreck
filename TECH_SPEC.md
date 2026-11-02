@@ -1,0 +1,283 @@
+# TECH_SPEC — техническая спецификация
+
+> Как реализуем проект технически. Продукт и функции — в `PROJECT_IDEA.md`, краткие правила — в `CLAUDE.md`.
+> При изменении архитектуры, инфраструктуры или API — обновлять этот файл.
+
+---
+
+## 1. Инфраструктура
+
+| Компонент | Где | Зачем |
+|---|---|---|
+| Код | GitHub, ветка `main` | Хранение кода, CI, источник деплоя |
+| Хостинг | Railway, 1 сервис | Бот + API + статика Mini App, HTTPS-домен |
+| База данных | Supabase (только PostgreSQL) | Хранение всех данных |
+| CI | GitHub Actions | Линт и тесты на каждый PR и push |
+
+### 1.1. Ключевые решения
+- **Один сервис на Railway, один домен.** FastAPI одновременно:
+  - принимает webhook Telegram на `/telegram/webhook`;
+  - отдаёт REST API на `/api/v1/...`;
+  - отдаёт собранный Mini App (статика) на `/`.
+  Плюсы: один деплой, один HTTPS-домен, нет CORS (frontend и API на одном origin).
+- **Supabase — только как PostgreSQL.** Supabase Auth, Data API (PostgREST), Storage не используем.
+  Авторизация — через Telegram `initData`. Backend подключается к БД по строке подключения.
+- **Redis не используем на старте.** Сложный ввод идёт в Mini App, FSM бота минимальна → `MemoryStorage`.
+  Напоминания считаются из БД, состояние в памяти не нужно. Redis добавим, только если понадобится.
+- **Бот в продакшене — webhook, локально — polling.**
+- **Строго 1 реплика** на Railway: планировщик напоминаний работает внутри процесса.
+  При масштабировании нужна блокировка (Postgres advisory lock), иначе напоминания задвоятся.
+
+### 1.2. Окружения
+
+| | Локально (dev) | Продакшен (prod) |
+|---|---|---|
+| Бот | отдельный dev-бот из BotFather, polling | основной бот, webhook |
+| БД | отдельный Supabase-проект `fittrack-dev` | Supabase-проект `fittrack-prod` |
+| Mini App | `npm run dev` (Vite) + HTTPS-туннель (cloudflared) | статика из FastAPI на домене Railway |
+| Секреты | файл `.env` (не в git) | Railway → Variables |
+
+Docker локально не нужен: Railway собирает образ по `Dockerfile` в облаке.
+
+---
+
+## 2. Деплой (CI/CD)
+
+```
+feature-ветка → Pull Request → GitHub Actions (lint + tests) → merge в main
+→ Railway автоматически собирает Dockerfile → pre-deploy: alembic upgrade head
+→ healthcheck /health → переключение трафика на новую версию
+```
+
+- Railway подключён к GitHub-репозиторию, авто-деплой ветки `main`.
+- В Railway включить опцию **Wait for CI**: деплой только при зелёном CI.
+- Конфиг Railway в репозитории: `railway.toml`
+  - builder: Dockerfile;
+  - `preDeployCommand = "alembic upgrade head"`;
+  - `healthcheckPath = "/health"`;
+  - `numReplicas = 1`.
+- **Dockerfile — multi-stage:**
+  1. стадия `node:22-alpine`: `npm ci && npm run build` в `webapp/` → `dist/`;
+  2. стадия `python:3.12-slim`: установка backend, копия `dist/` в `backend/static/`, запуск `uvicorn`.
+- Webhook регистрируется при старте приложения: `setWebhook(url, secret_token)`.
+- Откат — кнопка Redeploy предыдущего деплоя в Railway. Миграции пишем обратимыми (`downgrade`).
+
+---
+
+## 3. Backend
+
+### 3.1. Стек
+Python 3.12, FastAPI, uvicorn, aiogram 3.x, SQLAlchemy 2.x async + asyncpg, Alembic,
+pydantic v2 + pydantic-settings, APScheduler. Менеджер зависимостей — `uv` (`pyproject.toml` + `uv.lock`).
+
+### 3.2. Запуск приложения (lifespan FastAPI)
+1. Чтение конфига, создание engine БД.
+2. Создание `Bot` и `Dispatcher`, подключение роутеров.
+3. prod: `set_webhook`; dev: запуск polling в фоновой задаче.
+4. Старт APScheduler.
+5. На остановке: закрытие сессии бота, scheduler, engine.
+
+### 3.3. Структура
+```
+backend/
+  app/
+    main.py              # FastAPI app, lifespan, монтирование статики
+    core/
+      config.py          # Settings (pydantic-settings)
+      security.py        # проверка initData
+      logging.py
+    bot/
+      routers/           # start, settings, checkin_quick, admin
+      keyboards.py       # кнопки, в т.ч. WebApp-кнопки на экраны
+      middlewares.py     # сессия БД, пользователь, троттлинг
+      webhook.py         # эндпоинт /telegram/webhook
+    api/
+      deps.py            # get_session, get_current_user (из initData)
+      v1/                # profile, foods, meals, water, weight, exercises,
+                         # workouts, templates, checkins, stats, settings
+      schemas/           # pydantic-модели запросов и ответов
+    services/            # бизнес-логика: nutrition_calc, stats, streaks, reminders
+    db/
+      base.py  session.py
+      models/            # SQLAlchemy-модели
+      repositories/      # запросы к БД
+    scheduler/jobs.py    # задача рассылки напоминаний
+  migrations/            # Alembic
+  seeds/                 # стартовые справочники: продукты, упражнения
+  tests/
+  pyproject.toml
+```
+
+### 3.4. Подключение к Supabase
+- Строка: `postgresql+asyncpg://...` через **Supavisor в режиме session** (порт `5432`, хост `*.pooler.supabase.com`).
+  Причина: прямое подключение Supabase — только IPv6, а пулер работает по IPv4.
+- Режим transaction (порт `6543`) не использовать: asyncpg ломается на prepared statements.
+- Пул SQLAlchemy небольшой: `pool_size=5`, `max_overflow=5`, `pool_pre_ping=True`.
+- Схема БД создаётся **только миграциями Alembic**, не через UI Supabase.
+
+### 3.5. Безопасность Supabase
+- Data API (PostgREST) в настройках проекта **выключить** — мы его не используем.
+- В каждой миграции, создающей таблицу: `ENABLE ROW LEVEL SECURITY` без политик.
+  Это запрет доступа через anon/authenticated ключи. Backend подключается ролью `postgres` и RLS не затрагивается.
+- Публичный (anon) и секретный (service_role) ключи Supabase **не нужны** и в проект не добавляются.
+- Нужна только строка подключения к БД (пароль БД) — она хранится в `.env` и Railway Variables.
+
+---
+
+## 4. Авторизация Mini App
+
+1. Mini App при запуске берёт `initData` из Telegram SDK.
+2. Каждый запрос к API: заголовок `Authorization: tma <initData>`.
+3. Backend (`core/security.py`):
+   - вычисляет `secret_key = HMAC_SHA256("WebAppData", BOT_TOKEN)`;
+   - проверяет `hash` из `initData` через `hmac.compare_digest`;
+   - проверяет `auth_date`: не старше 24 часов;
+   - достаёт `user.id` → находит или создаёт пользователя.
+4. Ошибка проверки → `401`. `user_id` из тела запроса или query **никогда** не используется.
+5. Все запросы репозиториев фильтруются по `user_id` текущего пользователя.
+
+Для тестов: фикстура генерирует корректно подписанный `initData` тестовым токеном. Обхода проверки в коде нет ни в каком режиме.
+
+---
+
+## 5. REST API (v1)
+
+Префикс `/api/v1`, JSON, даты — ISO 8601, время в ответах — UTC.
+
+| Метод и путь | Назначение |
+|---|---|
+| `GET /me` | Профиль, цели, настройки, флаг «анкета пройдена» |
+| `PUT /me/profile` | Анкета: пол, дата рождения, рост, цель, активность, часовой пояс |
+| `GET /me/targets` | Рассчитанная норма ккал и БЖУ |
+| `PUT /me/settings` | Напоминания, время, тихие часы |
+| `DELETE /me` | Удалить все данные пользователя |
+| `GET /foods?query=` | Поиск по справочнику продуктов |
+| `POST /foods` | Свой продукт |
+| `GET /meals?date=` | Приёмы пищи за день + итоги |
+| `POST /meals/{meal_type}/items` | Добавить продукт в приём пищи |
+| `PATCH/DELETE /meal-items/{id}` | Изменить / удалить |
+| `GET /water?date=`, `POST /water` | Вода |
+| `GET /weight?from=&to=`, `POST /weight` | Вес |
+| `GET /exercises?query=&muscle=` | Каталог упражнений |
+| `POST /exercises` | Своё упражнение |
+| `GET /workouts?from=&to=` | Тренировки за период (для календаря) |
+| `POST /workouts`, `GET/PATCH/DELETE /workouts/{id}` | Тренировка с подходами |
+| `GET/POST /templates`, `POST /templates/{id}/start` | Шаблоны тренировок |
+| `GET /checkins?from=&to=`, `PUT /checkins/{date}` | Чек-ин: сон, энергия, стресс, настроение |
+| `GET /stats/summary?period=` | Данные для графиков: вес, ккал, сон, энергия, объём тренировок |
+| `GET /stats/streaks` | Серии и достижения |
+
+Служебные: `GET /health` (без авторизации), `POST /telegram/webhook` (проверка заголовка `X-Telegram-Bot-Api-Secret-Token`).
+
+---
+
+## 6. База данных
+
+Все таблицы: `id` (bigint identity), `created_at`, `updated_at` (`timestamptz`). Связи с `ON DELETE CASCADE` от `users`.
+
+| Таблица | Ключевые поля |
+|---|---|
+| `users` | `telegram_id` (unique), `first_name`, `username`, `sex`, `birth_date`, `height_cm`, `goal`, `activity_level`, `timezone`, `onboarded_at` |
+| `user_settings` | `user_id`, `reminders` (jsonb: тип → время, вкл/выкл), `quiet_from`, `quiet_to` |
+| `foods` | `name`, `kcal`, `protein`, `fat`, `carbs` (на 100 г), `owner_id` (null = системный) |
+| `meals` | `user_id`, `date`, `meal_type` (breakfast/lunch/dinner/snack) |
+| `meal_items` | `meal_id`, `food_id` (nullable), `name`, `grams`, `kcal`, `protein`, `fat`, `carbs` (снимок значений) |
+| `water_logs` | `user_id`, `amount_ml`, `logged_at` |
+| `body_metrics` | `user_id`, `date`, `weight_kg`, `waist_cm`… |
+| `exercises` | `name`, `muscle_group`, `kind` (strength/cardio/stretch), `owner_id` |
+| `workouts` | `user_id`, `date`, `status` (planned/done), `started_at`, `finished_at`, `rpe`, `note` |
+| `workout_sets` | `workout_id`, `exercise_id`, `set_no`, `reps`, `weight_kg`, `duration_s`, `distance_m` |
+| `workout_templates`, `template_exercises` | шаблоны программ |
+| `checkins` | `user_id`, `date` (unique вместе), `bed_time`, `wake_time`, `sleep_quality`, `energy`, `stress`, `mood`, `note` |
+| `reminder_log` | `user_id`, `type`, `sent_on` — защита от повторной отправки |
+
+- Индексы: `(user_id, date)` на всех дневниковых таблицах, поиск по `foods.name` — `pg_trgm`.
+- Справочники `foods` и `exercises` заполняются seed-скриптом.
+- В `meal_items` КБЖУ хранится снимком, чтобы правка справочника не меняла историю.
+
+---
+
+## 7. Бот
+
+- `/start` — регистрация, приветствие, кнопка «Открыть приложение». Установка Menu Button с Mini App.
+- `/settings` — краткие настройки напоминаний (полные — в Mini App).
+- Быстрый чек-ин кнопками прямо в чате (сон, энергия 1–5) — пишет в ту же таблицу `checkins`.
+- **Переход в нужный экран:** inline-кнопка `WebAppInfo(url=f"{WEBAPP_URL}/nutrition?meal=lunch")`.
+  Mini App читает путь и параметры через react-router. Для ссылок вне чата — `startapp` у Mini App из BotFather.
+- Троттлинг входящих апдейтов middleware.
+
+### 7.1. Напоминания
+- APScheduler, задача раз в минуту.
+- Выбирает пользователей, у которых в их часовом поясе наступило время напоминания и сегодня ещё нет записи в `reminder_log`.
+- Пропускает, если данные уже внесены (например, обед уже записан) или идут тихие часы.
+- Отправка с паузой ~30 сообщений/сек (лимиты Telegram). Ошибка `Forbidden` (бот заблокирован) → отключить напоминания пользователю.
+
+---
+
+## 8. Mini App (frontend)
+
+### 8.1. Стек
+React 18 + TypeScript + Vite, react-router, TanStack Query, `@telegram-apps/sdk-react`,
+`@telegram-apps/telegram-ui`, Tailwind CSS, Recharts, Zod (валидация форм), Vitest.
+
+### 8.2. Экраны
+| Путь | Экран |
+|---|---|
+| `/` | Главная: сводка дня (ккал, вода, сон, тренировка), быстрые действия |
+| `/onboarding` | Анкета и дисклеймер при первом входе |
+| `/nutrition` | Дневник питания по приёмам, вода, прогресс ккал и БЖУ |
+| `/nutrition/add` | Поиск продукта, слайдер граммовки |
+| `/weight` | Ввод веса, график |
+| `/workouts` | Календарь тренировок |
+| `/workouts/:id` | Трекинг тренировки: упражнения, подходы, RPE |
+| `/exercises` | Каталог упражнений |
+| `/checkin` | Чек-ин: сон, энергия, стресс, настроение слайдерами |
+| `/stats` | Графики прогресса |
+| `/profile` | Профиль, цели, напоминания, удаление данных |
+
+### 8.3. Правила
+- Цвета только из `themeParams` Telegram (CSS-переменные `--tg-theme-*`), светлая и тёмная тема.
+- Нативные элементы Telegram: `MainButton` для «Сохранить», `BackButton`, haptic feedback.
+- Часовой пояс берётся при онбординге из `Intl.DateTimeFormat().resolvedOptions().timeZone`.
+- Ленивые загрузки экранов, графики подгружаются отдельным чанком.
+- Локально Vite проксирует `/api` на `localhost:8000`.
+
+---
+
+## 9. Переменные окружения
+
+| Переменная | Пример / описание |
+|---|---|
+| `ENV` | `dev` или `prod` |
+| `BOT_TOKEN` | токен бота из BotFather (dev и prod — разные боты) |
+| `WEBHOOK_SECRET` | случайная строка для заголовка webhook |
+| `DATABASE_URL` | `postgresql+asyncpg://postgres.<ref>:<pass>@aws-0-<region>.pooler.supabase.com:5432/postgres` |
+| `WEBAPP_URL` | `https://<app>.up.railway.app` (prod) или адрес туннеля (dev) |
+| `ADMIN_IDS` | Telegram ID администраторов через запятую |
+| `LOG_LEVEL` | `INFO` |
+
+В репозитории — только `.env.example` без значений. `.env` в `.gitignore`.
+
+---
+
+## 10. Качество
+
+- **Тесты backend:** unit на расчёты (калории, БЖУ, стрики), на проверку `initData`, интеграционные на API (отдельная тестовая БД).
+- **Тесты frontend:** Vitest на утилиты и ключевые компоненты.
+- **Линт:** ruff + mypy (backend), ESLint + Prettier + `tsc --noEmit` (frontend).
+- **CI (`.github/workflows/ci.yml`):** на PR и push в `main` — линт и тесты обеих частей.
+- **Логи:** структурированные, без токенов и данных о здоровье. Смотреть в Railway → Logs.
+
+---
+
+## 11. Ограничения и затраты
+
+- Railway: тариф Hobby около $5 в месяц (бесплатного постоянного тарифа нет).
+- Supabase Free: 500 МБ БД. Проект ставится на паузу после 7 дней без активности.
+  Ежедневные напоминания бота поддерживают активность.
+- Supabase Free не даёт скачиваемых бэкапов. Решение по бэкапам — открытый вопрос (см. ниже).
+
+## 12. Открытые вопросы
+- Бэкапы: платный план Supabase или периодический `pg_dump` в приватное хранилище.
+- Свой домен или домен Railway `*.up.railway.app`.
+- Источник данных для справочника продуктов.
