@@ -17,9 +17,9 @@ Mini App — веб-приложение внутри Telegram: графики, 
 ## Инфраструктура
 - Код: GitHub, `main` → авто-деплой на **Railway** (Wait for CI, pre-deploy `alembic upgrade head`).
 - Railway: **один сервис, одна реплика**. FastAPI отдаёт webhook бота, `/api/v1` и статику Mini App.
-- БД: **Supabase только как PostgreSQL** через Supavisor session pooler (порт 5432).
-  Supabase Auth, Data API, Storage, anon и service_role ключи не используем.
-- Окружения: dev (dev-бот, polling, Supabase `fittrack-dev`, туннель) и prod (webhook, `fittrack-prod`).
+- БД: **PostgreSQL в Railway** (не Supabase). В Railway `DATABASE_URL=${{Postgres.DATABASE_URL}}`,
+  локально — `DATABASE_PUBLIC_URL`. Префикс `postgresql://` код сам меняет на `+asyncpg`.
+- Окружения: dev (polling, туннель) и prod (webhook). До релиза БД общая, перед запуском — отдельная dev.
 - Docker локально не установлен и не нужен: образ собирает Railway по `Dockerfile`.
 - Redis на старте нет: FSM бота — `MemoryStorage`, напоминания считаются из БД.
 
@@ -46,7 +46,7 @@ Dockerfile, railway.toml, .github/workflows/ci.yml, .env.example
 - Сложный ввод — в Mini App. В чате бота — короткие действия кнопками.
 - Напоминания содержат WebApp-кнопку на конкретный экран (`{WEBAPP_URL}/nutrition?meal=lunch`).
 - Все времена в БД — UTC (`timestamptz`). Показ — в часовом поясе пользователя.
-- Схема БД — только миграциями Alembic, не через UI Supabase. Миграции обратимые.
+- Схема БД — только миграциями Alembic, не руками через UI. Миграции обратимые.
 - В `meal_items` КБЖУ хранится снимком.
 
 ## Mini App: правила UI
@@ -59,7 +59,7 @@ Dockerfile, railway.toml, .github/workflows/ci.yml, .env.example
   Ошибка — 401. `user_id` только из проверенного `initData`. Обхода проверки нет ни в каком режиме.
 - Все запросы к данным фильтруются по `user_id` текущего пользователя.
 - Webhook проверяет заголовок `X-Telegram-Bot-Api-Secret-Token`.
-- Supabase: Data API выключен, RLS включён на каждой таблице (без политик).
+- RLS включается в миграции на каждой таблице (защита на случай переезда на Supabase).
 - Секреты — только в `.env` (локально) и Railway Variables. В git — только `.env.example`.
 - Секреты не просить в чат и не вставлять в код. Не логировать токены и данные о здоровье.
 

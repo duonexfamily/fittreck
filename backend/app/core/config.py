@@ -28,6 +28,16 @@ class Settings(BaseSettings):
             return [int(item) for item in value.split(",") if item.strip()]
         return value
 
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def _use_asyncpg(cls, value: object) -> object:
+        # Railway выдаёт postgresql:// — драйверу нужен postgresql+asyncpg://
+        if isinstance(value, str):
+            for prefix in ("postgresql://", "postgres://"):
+                if value.startswith(prefix):
+                    return "postgresql+asyncpg://" + value.removeprefix(prefix)
+        return value
+
     @field_validator("webapp_url")
     @classmethod
     def _strip_slash(cls, value: str) -> str:

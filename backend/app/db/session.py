@@ -9,7 +9,7 @@ from app.core.config import Settings
 
 
 def create_engine(settings: Settings) -> AsyncEngine:
-    # Supabase Supavisor в режиме session: небольшой пул, проверка соединений
+    # Небольшой пул и проверка соединений перед использованием
     return create_async_engine(
         settings.database_url.get_secret_value(),
         pool_size=5,
