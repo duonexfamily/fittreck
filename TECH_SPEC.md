@@ -11,7 +11,7 @@
 |---|---|---|
 | Код | GitHub, ветка `main` | Хранение кода, CI, источник деплоя |
 | Хостинг | Railway, 1 сервис | Бот + API + статика Mini App, HTTPS-домен |
-| База данных | Supabase (только PostgreSQL) | Хранение всех данных |
+| База данных | PostgreSQL в том же проекте Railway | Хранение всех данных |
 | CI | GitHub Actions | Линт и тесты на каждый PR и push |
 
 ### 1.1. Ключевые решения
@@ -20,8 +20,9 @@
   - отдаёт REST API на `/api/v1/...`;
   - отдаёт собранный Mini App (статика) на `/`.
   Плюсы: один деплой, один HTTPS-домен, нет CORS (frontend и API на одном origin).
-- **Supabase — только как PostgreSQL.** Supabase Auth, Data API (PostgREST), Storage не используем.
-  Авторизация — через Telegram `initData`. Backend подключается к БД по строке подключения.
+- **БД — PostgreSQL от Railway** (решение от 2026-11-02 вместо Supabase: одна платформа,
+  один аккаунт, бэкапы, подключение по приватной сети). Авторизация — через Telegram `initData`.
+  Supabase не используется.
 - **Redis не используем на старте.** Сложный ввод идёт в Mini App, FSM бота минимальна → `MemoryStorage`.
   Напоминания считаются из БД, состояние в памяти не нужно. Redis добавим, только если понадобится.
 - **Бот в продакшене — webhook, локально — polling.**
@@ -33,7 +34,7 @@
 | | Локально (dev) | Продакшен (prod) |
 |---|---|---|
 | Бот | отдельный dev-бот из BotFather, polling | основной бот, webhook |
-| БД | отдельный Supabase-проект `fittrack-dev` | Supabase-проект `fittrack-prod` |
+| БД | до релиза — та же БД Railway по публичному адресу; перед приглашением пользователей — отдельная dev-БД | PostgreSQL Railway по приватной сети |
 | Mini App | `npm run dev` (Vite) + HTTPS-туннель (cloudflared) | статика из FastAPI на домене Railway |
 | Секреты | файл `.env` (не в git) | Railway → Variables |
 
@@ -108,19 +109,13 @@ backend/
   pyproject.toml
 ```
 
-### 3.4. Подключение к Supabase
-- Строка: `postgresql+asyncpg://...` через **Supavisor в режиме session** (порт `5432`, хост `*.pooler.supabase.com`).
-  Причина: прямое подключение Supabase — только IPv6, а пулер работает по IPv4.
-- Режим transaction (порт `6543`) не использовать: asyncpg ломается на prepared statements.
+### 3.4. Подключение к БД
+- В Railway сервис приложения получает `DATABASE_URL=${{Postgres.DATABASE_URL}}` (приватная сеть).
+- Локально — `DATABASE_PUBLIC_URL` из сервиса Postgres в Railway, вставляется в `backend/.env`.
+- Схему `postgresql://` код сам меняет на `postgresql+asyncpg://` (`core/config.py`).
 - Пул SQLAlchemy небольшой: `pool_size=5`, `max_overflow=5`, `pool_pre_ping=True`.
-- Схема БД создаётся **только миграциями Alembic**, не через UI Supabase.
-
-### 3.5. Безопасность Supabase
-- Data API (PostgREST) в настройках проекта **выключить** — мы его не используем.
-- В каждой миграции, создающей таблицу: `ENABLE ROW LEVEL SECURITY` без политик.
-  Это запрет доступа через anon/authenticated ключи. Backend подключается ролью `postgres` и RLS не затрагивается.
-- Публичный (anon) и секретный (service_role) ключи Supabase **не нужны** и в проект не добавляются.
-- Нужна только строка подключения к БД (пароль БД) — она хранится в `.env` и Railway Variables.
+- Схема БД создаётся **только миграциями Alembic**, не руками через UI.
+- `ENABLE ROW LEVEL SECURITY` в миграциях оставлен как защита на случай переезда на Supabase; на работу backend (владелец таблиц) не влияет.
 
 ---
 
@@ -252,7 +247,7 @@ Telegram API — официальный скрипт `telegram-web-app.js`, до
 | `ENV` | `dev` или `prod` |
 | `BOT_TOKEN` | токен бота из BotFather (dev и prod — разные боты) |
 | `WEBHOOK_SECRET` | случайная строка для заголовка webhook |
-| `DATABASE_URL` | `postgresql+asyncpg://postgres.<ref>:<pass>@aws-0-<region>.pooler.supabase.com:5432/postgres` |
+| `DATABASE_URL` | Railway: `${{Postgres.DATABASE_URL}}`; локально — `DATABASE_PUBLIC_URL` из Railway |
 | `WEBAPP_URL` | `https://<app>.up.railway.app` (prod) или адрес туннеля (dev) |
 | `ADMIN_IDS` | Telegram ID администраторов через запятую |
 | `LOG_LEVEL` | `INFO` |
@@ -273,12 +268,10 @@ Telegram API — официальный скрипт `telegram-web-app.js`, до
 
 ## 11. Ограничения и затраты
 
-- Railway: тариф Hobby около $5 в месяц (бесплатного постоянного тарифа нет).
-- Supabase Free: 500 МБ БД. Проект ставится на паузу после 7 дней без активности.
-  Ежедневные напоминания бота поддерживают активность.
-- Supabase Free не даёт скачиваемых бэкапов. Решение по бэкапам — открытый вопрос (см. ниже).
+- Railway Hobby: $5 в месяц, в них входит $5 на ресурсы. Бот + PostgreSQL небольшого размера
+  обычно в это укладываются; при росте нагрузки — доплата по факту. Следить в Railway → Usage.
 
 ## 12. Открытые вопросы
-- Бэкапы: платный план Supabase или периодический `pg_dump` в приватное хранилище.
+- Бэкапы БД: настроить в Railway (Postgres → Backups) перед приглашением пользователей.
 - Свой домен или домен Railway `*.up.railway.app`.
 - Источник данных для справочника продуктов.

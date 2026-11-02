@@ -41,7 +41,7 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id", name=op.f("pk_users")),
         sa.UniqueConstraint("telegram_id", name=op.f("uq_users_telegram_id")),
     )
-    # Запрет доступа через ключи Supabase (anon / authenticated). Backend ходит ролью postgres
+    # Запрет доступа ролям без политик (важно при переезде на Supabase). Владелец таблиц не затронут
     op.execute("ALTER TABLE users ENABLE ROW LEVEL SECURITY")
 
 
