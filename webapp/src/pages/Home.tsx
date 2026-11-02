@@ -5,8 +5,8 @@ import { getMe, getTargets } from '../api/client'
 import TargetsCard from '../components/TargetsCard'
 import { isInTelegram } from '../lib/telegram'
 
-const SECTIONS = [
-  { emoji: '🍽', title: 'Питание', hint: 'Скоро' },
+const SECTIONS: { emoji: string; title: string; hint: string; to?: string }[] = [
+  { emoji: '🍽', title: 'Питание', hint: 'Дневник и КБЖУ', to: '/nutrition' },
   { emoji: '🏋️', title: 'Тренировки', hint: 'Скоро' },
   { emoji: '😴', title: 'Сон и самочувствие', hint: 'Скоро' },
   { emoji: '📈', title: 'Прогресс', hint: 'Скоро' },
@@ -45,13 +45,26 @@ export default function Home() {
       )}
 
       <ul className="mt-4 grid grid-cols-2 gap-3">
-        {SECTIONS.map((s) => (
-          <li key={s.title} className="rounded-2xl bg-bg-secondary p-4">
-            <div className="text-2xl">{s.emoji}</div>
-            <div className="mt-2 font-medium">{s.title}</div>
-            <div className="text-sm text-hint">{s.hint}</div>
-          </li>
-        ))}
+        {SECTIONS.map((s) => {
+          const body = (
+            <>
+              <div className="text-2xl">{s.emoji}</div>
+              <div className="mt-2 font-medium">{s.title}</div>
+              <div className="text-sm text-hint">{s.hint}</div>
+            </>
+          )
+          return (
+            <li key={s.title} className="rounded-2xl bg-bg-secondary">
+              {s.to ? (
+                <Link to={s.to} className="block p-4">
+                  {body}
+                </Link>
+              ) : (
+                <div className="p-4">{body}</div>
+              )}
+            </li>
+          )
+        })}
       </ul>
 
       <p className="mt-6 text-xs text-hint">
