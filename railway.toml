@@ -1,0 +1,13 @@
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+# Миграции перед запуском новой версии. Упадут — деплой не переключится
+preDeployCommand = ["alembic upgrade head"]
+healthcheckPath = "/health"
+healthcheckTimeout = 60
+# Строго одна реплика: напоминания и webhook внутри процесса (см. TECH_SPEC.md)
+numReplicas = 1
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 5

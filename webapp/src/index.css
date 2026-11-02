@@ -1,0 +1,21 @@
+@import 'tailwindcss';
+
+/* Цвета только из темы Telegram. Запасные значения — для открытия вне Telegram */
+@theme {
+  --color-bg: var(--tg-theme-bg-color, #ffffff);
+  --color-bg-secondary: var(--tg-theme-secondary-bg-color, #f1f1f4);
+  --color-text: var(--tg-theme-text-color, #111111);
+  --color-hint: var(--tg-theme-hint-color, #8e8e93);
+  --color-link: var(--tg-theme-link-color, #2481cc);
+  --color-button: var(--tg-theme-button-color, #2481cc);
+  --color-button-text: var(--tg-theme-button-text-color, #ffffff);
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
