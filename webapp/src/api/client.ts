@@ -22,6 +22,8 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (!response.ok) {
     throw new ApiError(response.status, `API ${response.status}`)
   }
+  // 204 No Content — тела нет
+  if (response.status === 204) return undefined as T
   return (await response.json()) as T
 }
 
@@ -68,3 +70,56 @@ export const putProfile = (body: ProfileIn) =>
   api<Me>('/me/profile', { method: 'PUT', body: JSON.stringify(body) })
 
 export const getTargets = () => api<Targets>('/me/targets')
+
+export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack'
+
+/** КБЖУ: у продукта — на 100 г, у записи дневника — на порцию. */
+export interface Nutrients {
+  kcal: number
+  protein: number
+  fat: number
+  carbs: number
+}
+
+export interface Food extends Nutrients {
+  id: number
+  name: string
+  own: boolean
+}
+
+export type FoodIn = Omit<Food, 'id' | 'own'>
+
+export interface MealItem extends Nutrients {
+  id: number
+  food_id: number | null
+  name: string
+  grams: number
+}
+
+export interface Meal {
+  meal_type: MealType
+  items: MealItem[]
+  total: Nutrients
+}
+
+export interface Diary {
+  date: string
+  meals: Meal[]
+  total: Nutrients
+}
+
+export const searchFoods = (query: string) =>
+  api<Food[]>(`/foods?query=${encodeURIComponent(query)}`)
+
+export const createFood = (body: FoodIn) =>
+  api<Food>('/foods', { method: 'POST', body: JSON.stringify(body) })
+
+export const getDiary = (date: string) => api<Diary>(`/meals?date=${date}`)
+
+export const addMealItem = (meal: MealType, body: { date: string; food_id: number; grams: number }) =>
+  api<MealItem>(`/meals/${meal}/items`, { method: 'POST', body: JSON.stringify(body) })
+
+export const updateMealItem = (id: number, grams: number) =>
+  api<MealItem>(`/meal-items/${id}`, { method: 'PATCH', body: JSON.stringify({ grams }) })
+
+export const deleteMealItem = (id: number) => api<void>(`/meal-items/${id}`, { method: 'DELETE' })

@@ -10,12 +10,20 @@ interface MainButton {
   offClick(cb: () => void): void
 }
 
+interface BackButton {
+  show(): void
+  hide(): void
+  onClick(cb: () => void): void
+  offClick(cb: () => void): void
+}
+
 interface TelegramWebApp {
   initData: string
   initDataUnsafe: { start_param?: string }
   colorScheme: 'light' | 'dark'
   themeParams: { button_color?: string; hint_color?: string }
   MainButton: MainButton
+  BackButton: BackButton
   ready(): void
   expand(): void
   HapticFeedback: {
