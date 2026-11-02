@@ -26,8 +26,8 @@ Mini App — веб-приложение внутри Telegram: графики, 
 ## Стек
 - Backend: Python 3.12, FastAPI, uvicorn, aiogram 3.x, SQLAlchemy 2.x async + asyncpg,
   Alembic, pydantic v2, pydantic-settings, APScheduler. Зависимости — `uv`.
-- Mini App: React 18 + TypeScript + Vite, react-router, TanStack Query, Tailwind CSS,
-  `@telegram-apps/sdk-react`, `@telegram-apps/telegram-ui`, Recharts, Zod.
+- Mini App: React 18 + TypeScript + Vite, react-router 7, TanStack Query, Tailwind CSS 4,
+  официальный `telegram-web-app.js` через обёртку `src/lib/telegram.ts`. Позже: Recharts, Zod.
 - Тесты и линт: pytest, ruff, mypy; Vitest, ESLint, Prettier. CI — GitHub Actions.
 
 ## Структура
@@ -69,7 +69,7 @@ Dockerfile, railway.toml, .github/workflows/ci.yml, .env.example
 
 ## Команды (после создания каркаса)
 ```
-cd backend; uv sync; uv run alembic upgrade head; uv run python -m app.main
+cd backend; uv sync; uv run alembic upgrade head; uv run python -m app.main   # uv не в PATH → python -m uv
 uv run alembic revision --autogenerate -m "msg"
 uv run pytest; uv run ruff check .; uv run ruff format .; uv run mypy app
 cd webapp; npm ci; npm run dev; npm run build; npm run lint; npm test

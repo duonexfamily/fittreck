@@ -217,8 +217,9 @@ backend/
 ## 8. Mini App (frontend)
 
 ### 8.1. Стек
-React 18 + TypeScript + Vite, react-router, TanStack Query, `@telegram-apps/sdk-react`,
-`@telegram-apps/telegram-ui`, Tailwind CSS, Recharts, Zod (валидация форм), Vitest.
+React 18 + TypeScript + Vite, react-router 7, TanStack Query, Tailwind CSS 4.
+Telegram API — официальный скрипт `telegram-web-app.js`, доступ только через обёртку `src/lib/telegram.ts`.
+Добавляются по мере надобности: Recharts (графики), Zod (валидация форм), Vitest, ESLint.
 
 ### 8.2. Экраны
 | Путь | Экран |
@@ -256,7 +257,7 @@ React 18 + TypeScript + Vite, react-router, TanStack Query, `@telegram-apps/sdk-
 | `ADMIN_IDS` | Telegram ID администраторов через запятую |
 | `LOG_LEVEL` | `INFO` |
 
-В репозитории — только `.env.example` без значений. `.env` в `.gitignore`.
+В репозитории — только `backend/.env.example` без значений. Локально копия — `backend/.env` (в `.gitignore`).
 
 ---
 
