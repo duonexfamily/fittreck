@@ -75,11 +75,14 @@ uv run alembic revision --autogenerate -m "msg"
 uv run pytest; uv run ruff check .; uv run ruff format .; uv run mypy app
 cd webapp; npm ci; npm run dev; npm run build; npm run lint; npm test
 ```
-Для проверки Mini App в Telegram локально — HTTPS-туннель (cloudflared).
+Mini App в Telegram локально: `npm run dev -- --host 127.0.0.1` в `webapp/`, затем пользователь сам запускает
+`tools/cloudflared.exe tunnel --no-autoupdate --url http://127.0.0.1:5173` (туннель запускает только он),
+адрес `https://*.trycloudflare.com` → `WEBAPP_URL` в `backend/.env` → перезапуск бота. Адрес меняется при каждом запуске.
 
 ## Этапы
-0. Памятки, спецификация, каркас — **текущий этап**.
-1. MVP: бот (`/start`, уведомления) + скелет Mini App + проверка `initData` + деплой.
+0. Памятки, спецификация, каркас — ✅ готово.
+1. MVP: бот `/start`, скелет Mini App, проверка `initData` — ✅ работает локально (02.11.2026).
+   Осталось: деплой (Railway закрыт для регистрации), напоминания.
 2. Mini App: питание, вода, вес, цели по калориям.
 3. Mini App: упражнения, тренировки, календарь, чек-ины сна и самочувствия.
 4. Графики, умные напоминания, стрики, полировка, релиз.
