@@ -34,7 +34,7 @@
 | | Локально (dev) | Продакшен (prod) |
 |---|---|---|
 | Бот | отдельный dev-бот из BotFather, polling | основной бот, webhook |
-| БД | до релиза — та же БД Railway по публичному адресу; перед приглашением пользователей — отдельная dev-БД | PostgreSQL Railway по приватной сети |
+| БД | Supabase `fittrack-dev`, Session pooler (eu-west-1). Регистрация в Railway закрыта с 21.10.2026 | PostgreSQL Railway по приватной сети (или другой хостинг, если Railway не откроется) |
 | Mini App | `npm run dev` (Vite) + HTTPS-туннель (cloudflared) | статика из FastAPI на домене Railway |
 | Секреты | файл `.env` (не в git) | Railway → Variables |
 
@@ -113,6 +113,7 @@ backend/
 - В Railway сервис приложения получает `DATABASE_URL=${{Postgres.DATABASE_URL}}` (приватная сеть).
 - Локально — `DATABASE_PUBLIC_URL` из сервиса Postgres в Railway, вставляется в `backend/.env`.
 - Схему `postgresql://` код сам меняет на `postgresql+asyncpg://` (`core/config.py`).
+- Спецсимволы пароля в URL кодируются: `%` → `%25`, `@` → `%40`, `/` → `%2F` и т.д.
 - Пул SQLAlchemy небольшой: `pool_size=5`, `max_overflow=5`, `pool_pre_ping=True`.
 - Схема БД создаётся **только миграциями Alembic**, не руками через UI.
 - `ENABLE ROW LEVEL SECURITY` в миграциях оставлен как защита на случай переезда на Supabase; на работу backend (владелец таблиц) не влияет.

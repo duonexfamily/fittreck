@@ -19,7 +19,8 @@ Mini App — веб-приложение внутри Telegram: графики, 
 - Railway: **один сервис, одна реплика**. FastAPI отдаёт webhook бота, `/api/v1` и статику Mini App.
 - БД: **PostgreSQL в Railway** (не Supabase). В Railway `DATABASE_URL=${{Postgres.DATABASE_URL}}`,
   локально — `DATABASE_PUBLIC_URL`. Префикс `postgresql://` код сам меняет на `+asyncpg`.
-- Окружения: dev (polling, туннель) и prod (webhook). До релиза БД общая, перед запуском — отдельная dev.
+- Окружения: dev (polling, туннель, БД Supabase `fittrack-dev`) и prod (webhook, Railway Postgres).
+  Регистрация в Railway закрыта с 21.10.2026 — при необходимости другой хостинг (Render, Fly.io).
 - Docker локально не установлен и не нужен: образ собирает Railway по `Dockerfile`.
 - Redis на старте нет: FSM бота — `MemoryStorage`, напоминания считаются из БД.
 
