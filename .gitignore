@@ -26,3 +26,6 @@ Thumbs.db
 
 # Логи
 *.log
+
+# Локальные утилиты (cloudflared и т.п.)
+tools/

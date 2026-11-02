@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
+import { Link, Navigate } from 'react-router'
 
-import { getMe } from '../api/client'
+import { getMe, getTargets } from '../api/client'
+import TargetsCard from '../components/TargetsCard'
 import { isInTelegram } from '../lib/telegram'
 
 const SECTIONS = [
@@ -12,6 +14,8 @@ const SECTIONS = [
 
 export default function Home() {
   const me = useQuery({ queryKey: ['me'], queryFn: getMe, enabled: isInTelegram })
+  const onboarded = Boolean(me.data?.onboarded_at)
+  const targets = useQuery({ queryKey: ['targets'], queryFn: getTargets, enabled: onboarded })
 
   if (!isInTelegram) {
     return (
@@ -22,12 +26,23 @@ export default function Home() {
     )
   }
 
+  if (me.data && !onboarded) return <Navigate to="/onboarding" replace />
+
   return (
     <main className="p-4">
       <h1 className="text-xl font-semibold">
         {me.data ? `Привет, ${me.data.first_name}!` : 'FitTrack'}
       </h1>
       {me.isError && <p className="mt-2 text-hint">Не удалось загрузить профиль.</p>}
+
+      {targets.data && (
+        <div className="mt-4">
+          <TargetsCard targets={targets.data} />
+          <Link to="/onboarding" className="mt-2 inline-block text-sm text-link">
+            Изменить анкету
+          </Link>
+        </div>
+      )}
 
       <ul className="mt-4 grid grid-cols-2 gap-3">
         {SECTIONS.map((s) => (
