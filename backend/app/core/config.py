@@ -17,9 +17,11 @@ class Settings(BaseSettings):
     bot_token: SecretStr
     webhook_secret: SecretStr | None = None
     database_url: SecretStr
-    # Render сам задаёт RENDER_EXTERNAL_URL — адрес сервиса. WEBAPP_URL важнее, если задан
+    # Адрес сервиса хостинг задаёт сам: Render — RENDER_EXTERNAL_URL,
+    # Railway — RAILWAY_PUBLIC_DOMAIN (без https://). WEBAPP_URL важнее, если задан
     webapp_url: str = Field(
-        default="", validation_alias=AliasChoices("WEBAPP_URL", "RENDER_EXTERNAL_URL")
+        default="",
+        validation_alias=AliasChoices("WEBAPP_URL", "RENDER_EXTERNAL_URL", "RAILWAY_PUBLIC_DOMAIN"),
     )
     admin_ids: Annotated[list[int], NoDecode] = Field(default_factory=list)
     log_level: str = "INFO"
@@ -48,8 +50,12 @@ class Settings(BaseSettings):
 
     @field_validator("webapp_url")
     @classmethod
-    def _strip_slash(cls, value: str) -> str:
-        return value.rstrip("/")
+    def _normalize_url(cls, value: str) -> str:
+        value = value.strip().rstrip("/")
+        # Голый домен (RAILWAY_PUBLIC_DOMAIN) — Telegram открывает Mini App только по HTTPS
+        if value and "://" not in value:
+            value = f"https://{value}"
+        return value
 
     @model_validator(mode="after")
     def _check_prod(self) -> "Settings":

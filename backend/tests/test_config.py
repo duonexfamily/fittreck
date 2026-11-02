@@ -48,3 +48,11 @@ def test_render_external_url_is_used_as_webapp_url(monkeypatch: pytest.MonkeyPat
     monkeypatch.setenv("RENDER_EXTERNAL_URL", "https://fittrack.onrender.com/")
     settings = Settings(_env_file=None)  # type: ignore[call-arg]
     assert settings.webapp_url == "https://fittrack.onrender.com"
+
+
+def test_railway_public_domain_is_used_as_webapp_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("WEBAPP_URL", raising=False)
+    monkeypatch.delenv("RENDER_EXTERNAL_URL", raising=False)
+    monkeypatch.setenv("RAILWAY_PUBLIC_DOMAIN", "fittrack-production.up.railway.app")
+    settings = Settings(_env_file=None)  # type: ignore[call-arg]
+    assert settings.webapp_url == "https://fittrack-production.up.railway.app"
