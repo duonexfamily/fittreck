@@ -10,11 +10,16 @@
 | Компонент | Где | Зачем |
 |---|---|---|
 | Код | GitHub, ветка `main` | Хранение кода, CI, источник деплоя |
-| Хостинг | Railway, 1 сервис | Бот + API + статика Mini App, HTTPS-домен |
-| База данных | PostgreSQL в том же проекте Railway | Хранение всех данных |
+| Хостинг | Render (free), 1 сервис, `render.yaml` | Бот + API + статика Mini App, HTTPS-домен |
+| База данных | Supabase (free), Session pooler | Хранение всех данных |
 | CI | GitHub Actions | Линт и тесты на каждый PR и push |
 
 ### 1.1. Ключевые решения
+- **Хостинг — Render + Supabase** (решение от 2026-11-03: регистрация в Railway закрыта с 21.10.2026).
+  Оба бесплатно и без карты. Ограничения free: Render засыпает через 15 мин без запросов, Supabase
+  ставит базу на паузу после недели без активности. Решение — самопинг (`KEEPALIVE_MINUTES`,
+  `app/core/keepalive.py`): раз в 10 мин `GET {WEBAPP_URL}/health` и `SELECT 1`. Пункты ниже про
+  Railway остаются в силе при возможном переезде (`railway.toml` сохранён).
 - **Один сервис на Railway, один домен.** FastAPI одновременно:
   - принимает webhook Telegram на `/telegram/webhook`;
   - отдаёт REST API на `/api/v1/...`;
@@ -36,7 +41,7 @@
 | Бот | отдельный dev-бот из BotFather, polling | основной бот, webhook |
 | БД | Supabase `fittrack-dev`, Session pooler (eu-west-1). Регистрация в Railway закрыта с 21.10.2026 | PostgreSQL Railway по приватной сети (или другой хостинг, если Railway не откроется) |
 | Mini App | `npm run dev` (Vite) + HTTPS-туннель (cloudflared) | статика из FastAPI на домене Railway |
-| Секреты | файл `.env` (не в git) | Railway → Variables |
+| Секреты | файл `.env` (не в git) | Render → Environment |
 
 Docker локально не нужен: Railway собирает образ по `Dockerfile` в облаке.
 
@@ -61,7 +66,11 @@ feature-ветка → Pull Request → GitHub Actions (lint + tests) → merge 
   1. стадия `node:22-alpine`: `npm ci && npm run build` в `webapp/` → `dist/`;
   2. стадия `python:3.12-slim`: установка backend, копия `dist/` в `backend/static/`, запуск `uvicorn`.
 - Webhook регистрируется при старте приложения: `setWebhook(url, secret_token)`.
-- Откат — кнопка Redeploy предыдущего деплоя в Railway. Миграции пишем обратимыми (`downgrade`).
+- **Render:** Blueprint `render.yaml` — Docker, `plan: free`, `healthCheckPath: /health`, авто-деплой `main`.
+  Pre-deploy на free нет, поэтому миграции запускает CMD контейнера перед `app.main`.
+  `WEBAPP_URL` не задаётся: берётся из `RENDER_EXTERNAL_URL`. `WEBHOOK_SECRET` генерирует Render;
+  в Telegram уходит SHA-256 от него (hex), потому что `secret_token` допускает только `A-Za-z0-9_-`.
+- Откат — кнопка Redeploy предыдущего деплоя в Railway/Render. Миграции пишем обратимыми (`downgrade`).
 
 ---
 

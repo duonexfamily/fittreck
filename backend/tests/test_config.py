@@ -1,3 +1,5 @@
+import re
+
 import pytest
 
 from app.core.config import Settings
@@ -25,3 +27,24 @@ def test_prod_requires_webhook_secret() -> None:
             database_url="postgresql://u:p@host/db",
             webapp_url="https://example.up.railway.app",
         )
+
+
+def test_webhook_token_is_telegram_safe() -> None:
+    # Секрет в духе генератора Render: base64 с символами, которые Telegram не принимает
+    settings = Settings(
+        env="prod",
+        bot_token="1:x",
+        database_url="postgresql://u:p@h/db",
+        webhook_secret="ab+/cd==",
+        webapp_url="https://x.onrender.com",
+    )
+    token = settings.webhook_token
+    assert token is not None
+    assert re.fullmatch(r"[0-9a-f]{64}", token)
+
+
+def test_render_external_url_is_used_as_webapp_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("WEBAPP_URL", raising=False)
+    monkeypatch.setenv("RENDER_EXTERNAL_URL", "https://fittrack.onrender.com/")
+    settings = Settings(_env_file=None)  # type: ignore[call-arg]
+    assert settings.webapp_url == "https://fittrack.onrender.com"

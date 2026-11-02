@@ -16,6 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from app.api.v1 import router as api_router
 from app.bot.setup import WEBHOOK_PATH, configure_bot, create_bot, create_dispatcher
 from app.core.config import get_settings
+from app.core.keepalive import keepalive_loop
 from app.core.logging import setup_logging
 from app.db.session import create_engine, create_sessionmaker
 
@@ -43,11 +44,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     polling_task: asyncio.Task[Any] | None = None
     if settings.env == "prod":
-        if settings.webhook_secret is None:  # уже проверено в Settings, здесь для mypy
+        if settings.webhook_token is None:  # уже проверено в Settings, здесь для mypy
             raise RuntimeError("WEBHOOK_SECRET не задан")
         await bot.set_webhook(
             url=f"{settings.webapp_url}{WEBHOOK_PATH}",
-            secret_token=settings.webhook_secret.get_secret_value(),
+            secret_token=settings.webhook_token,
             allowed_updates=dp.resolve_used_update_types(),
         )
         logger.info("Webhook установлен")
@@ -56,9 +57,20 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         polling_task = asyncio.create_task(dp.start_polling(bot, handle_signals=False))
         logger.info("Бот запущен в режиме polling")
 
+    keepalive_task: asyncio.Task[None] | None = None
+    if settings.keepalive_minutes and settings.webapp_is_https:
+        keepalive_task = asyncio.create_task(
+            keepalive_loop(settings.webapp_url, sessionmaker, settings.keepalive_minutes)
+        )
+        logger.info("Самопинг включён: раз в %s мин", settings.keepalive_minutes)
+
     try:
         yield
     finally:
+        if keepalive_task is not None:
+            keepalive_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await keepalive_task
         if polling_task is not None:
             await dp.stop_polling()
             polling_task.cancel()
@@ -82,11 +94,11 @@ async def telegram_webhook(
     request: Request,
     x_telegram_bot_api_secret_token: Annotated[str | None, Header()] = None,
 ) -> Response:
-    secret = get_settings().webhook_secret
+    token = get_settings().webhook_token
     if (
-        secret is None
+        token is None
         or x_telegram_bot_api_secret_token is None
-        or not hmac.compare_digest(x_telegram_bot_api_secret_token, secret.get_secret_value())
+        or not hmac.compare_digest(x_telegram_bot_api_secret_token, token)
     ):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
 

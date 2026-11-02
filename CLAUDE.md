@@ -15,13 +15,16 @@ Mini App — веб-приложение внутри Telegram: графики, 
 - Комментарии в коде — на русском. Имена переменных, функций, таблиц — на английском.
 
 ## Инфраструктура
-- Код: GitHub, `main` → авто-деплой на **Railway** (Wait for CI, pre-deploy `alembic upgrade head`).
-- Railway: **один сервис, одна реплика**. FastAPI отдаёт webhook бота, `/api/v1` и статику Mini App.
-- БД: **PostgreSQL в Railway** (не Supabase). В Railway `DATABASE_URL=${{Postgres.DATABASE_URL}}`,
-  локально — `DATABASE_PUBLIC_URL`. Префикс `postgresql://` код сам меняет на `+asyncpg`.
-- Окружения: dev (polling, туннель, БД Supabase `fittrack-dev`) и prod (webhook, Railway Postgres).
-  Регистрация в Railway закрыта с 21.10.2026 — при необходимости другой хостинг (Render, Fly.io).
-- Docker локально не установлен и не нужен: образ собирает Railway по `Dockerfile`.
+- Прод (решение 03.11.2026, Railway закрыт для регистрации): **Render free + Supabase free**.
+  Код: GitHub, `main` → авто-деплой на Render по `render.yaml` (Blueprint, Docker).
+- Один сервис, одна реплика. FastAPI отдаёт webhook бота, `/api/v1` и статику Mini App.
+- Миграции — при старте контейнера (`alembic upgrade head` в CMD Dockerfile): pre-deploy на free нет.
+- Free Render засыпает через 15 мин без запросов → `KEEPALIVE_MINUTES=10`: самопинг `/health`
+  и `SELECT 1` (заодно не даёт Supabase поставить базу на паузу). `WEBAPP_URL` берётся из `RENDER_EXTERNAL_URL`.
+- БД: Supabase, строка **Session pooler** (Render без IPv6). Префикс `postgresql://` код меняет на `+asyncpg`.
+- Окружения: dev (dev-бот, polling, туннель, Supabase `fittrack-dev`) и prod (prod-бот, webhook, Supabase prod).
+- `railway.toml` оставлен на случай переезда на Railway.
+- Docker локально не установлен и не нужен: образ собирает хостинг по `Dockerfile`.
 - Redis на старте нет: FSM бота — `MemoryStorage`, напоминания считаются из БД.
 
 ## Стек
@@ -61,7 +64,7 @@ Dockerfile, railway.toml, .github/workflows/ci.yml, .env.example
 - Все запросы к данным фильтруются по `user_id` текущего пользователя.
 - Webhook проверяет заголовок `X-Telegram-Bot-Api-Secret-Token`.
 - RLS включается в миграции на каждой таблице (защита на случай переезда на Supabase).
-- Секреты — только в `.env` (локально) и Railway Variables. В git — только `.env.example`.
+- Секреты — только в `.env` (локально) и Render → Environment. В git — только `.env.example`.
 - Секреты не просить в чат и не вставлять в код. Не логировать токены и данные о здоровье.
 
 ## Расчёты и дисклеймер
@@ -82,7 +85,7 @@ Mini App в Telegram локально: `npm run dev -- --host 127.0.0.1` в `web
 ## Этапы
 0. Памятки, спецификация, каркас — ✅ готово.
 1. MVP: бот `/start`, скелет Mini App, проверка `initData` — ✅ работает локально (02.11.2026).
-   Осталось: деплой (Railway закрыт для регистрации), напоминания.
+   Осталось: деплой на Render (конфиг готов, ждёт настройки аккаунтов), напоминания.
 2. Mini App: питание, вода, вес, цели по калориям.
 3. Mini App: упражнения, тренировки, календарь, чек-ины сна и самочувствия.
 4. Графики, умные напоминания, стрики, полировка, релиз.
