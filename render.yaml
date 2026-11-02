@@ -1,0 +1,26 @@
+# Render Blueprint: Dashboard → New → Blueprint → репозиторий fittreck.
+# Секреты (BOT_TOKEN, DATABASE_URL) вводятся в форме Render, в git их нет.
+services:
+  - type: web
+    name: fittrack
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: frankfurt
+    branch: main
+    autoDeploy: true
+    healthCheckPath: /health
+    envVars:
+      - key: ENV
+        value: prod
+      - key: BOT_TOKEN
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: WEBHOOK_SECRET
+        generateValue: true
+      # Бесплатный сервис засыпает через 15 минут без запросов — будим сами
+      - key: KEEPALIVE_MINUTES
+        value: "10"
+      - key: LOG_LEVEL
+        value: INFO

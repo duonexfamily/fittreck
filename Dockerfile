@@ -27,5 +27,6 @@ COPY --from=webapp /webapp/dist ./static
 RUN useradd --create-home appuser
 USER appuser
 
-# PORT задаёт Railway
-CMD ["python", "-m", "app.main"]
+# PORT задаёт хостинг. Миграции — перед запуском: на бесплатном Render нет pre-deploy.
+# Повторный запуск alembic безопасен, на Railway их же выполняет preDeployCommand
+CMD ["sh", "-c", "alembic upgrade head && exec python -m app.main"]
