@@ -76,6 +76,8 @@ class Outgoing:
     user_id: int
     chat_id: int
     type: ReminderType
+    # Дата в часовом поясе пользователя — на неё пишет быстрый чек-ин
+    day: date
 
 
 def parse_settings(raw: Mapping[str, Any]) -> dict[str, ReminderSetting]:
@@ -190,6 +192,6 @@ async def collect_due(session: AsyncSession, now: datetime) -> list[Outgoing]:
                 continue
             done = await _already_done(session, user, kind, day)
             if await repo.mark_handled(user.id, kind, day) and not done:
-                result.append(Outgoing(user.id, user.telegram_id, REMINDERS_BY_KIND[kind]))
+                result.append(Outgoing(user.id, user.telegram_id, REMINDERS_BY_KIND[kind], day))
     await session.commit()
     return result

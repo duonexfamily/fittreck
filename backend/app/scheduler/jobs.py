@@ -11,11 +11,12 @@ from datetime import UTC, datetime
 
 from aiogram import Bot
 from aiogram.exceptions import TelegramAPIError, TelegramForbiddenError, TelegramRetryAfter
+from aiogram.types import InlineKeyboardMarkup
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from app.bot.keyboards import open_app_keyboard
+from app.bot.keyboards import checkin_step_keyboard, open_app_keyboard
 from app.db.models import User
-from app.services import reminders
+from app.services import checkins, reminders
 
 logger = logging.getLogger(__name__)
 
@@ -23,8 +24,15 @@ logger = logging.getLogger(__name__)
 SEND_PAUSE = 0.04
 
 
+def reminder_keyboard(item: reminders.Outgoing, webapp_url: str) -> InlineKeyboardMarkup:
+    # На чек-ин отвечают прямо в чате: оценки кнопками, подробности — в приложении
+    if item.type.kind == "checkin":
+        return checkin_step_keyboard(checkins.QUICK_FIELDS[0], item.day, webapp_url)
+    return open_app_keyboard(webapp_url, item.type.path, item.type.button)
+
+
 async def _send(bot: Bot, item: reminders.Outgoing, webapp_url: str) -> None:
-    keyboard = open_app_keyboard(webapp_url, item.type.path, item.type.button)
+    keyboard = reminder_keyboard(item, webapp_url)
     try:
         await bot.send_message(item.chat_id, item.type.text, reply_markup=keyboard)
     except TelegramRetryAfter as error:

@@ -12,6 +12,8 @@ from app.services.profile import user_today
 # Самый длинный период за один запрос — год с запасом на високосный
 MAX_RANGE_DAYS = 366
 DEFAULT_RANGE_DAYS = 30
+# Оценки, которые можно поставить кнопками в чате бота, по порядку вопросов
+QUICK_FIELDS = ("sleep_quality", "energy", "mood")
 
 
 @dataclass(frozen=True, slots=True)
@@ -67,5 +69,18 @@ async def save_checkin(
     if fields["note"] is not None:
         fields["note"] = fields["note"].strip() or None
     checkin = await CheckinRepository(session).upsert(user.id, day, fields)
+    await session.commit()
+    return checkin
+
+
+async def save_quick(
+    session: AsyncSession, user: User, day: date, field: str, value: int
+) -> Checkin:
+    """Ставит одну оценку из бота. Остальные поля чек-ина за день не меняются."""
+    if field not in QUICK_FIELDS or not 1 <= value <= 5:
+        raise ValueError(field)
+    if day > user_today(user):
+        raise FutureDateError
+    checkin = await CheckinRepository(session).upsert(user.id, day, {field: value})
     await session.commit()
     return checkin

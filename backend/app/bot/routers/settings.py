@@ -29,7 +29,7 @@ def list_text(user: User) -> str:
     )
 
 
-async def _onboarded_user(session: AsyncSession, telegram_id: int) -> User | None:
+async def onboarded_user(session: AsyncSession, telegram_id: int) -> User | None:
     user = await get_by_telegram_id(session, telegram_id)
     return user if user is not None and user.onboarded_at is not None else None
 
@@ -38,7 +38,7 @@ async def _onboarded_user(session: AsyncSession, telegram_id: int) -> User | Non
 async def cmd_settings(message: Message, session: AsyncSession) -> None:
     if message.from_user is None:
         return
-    user = await _onboarded_user(session, message.from_user.id)
+    user = await onboarded_user(session, message.from_user.id)
     if user is None:
         await answer_with_app(message, NEED_PROFILE)
         return
@@ -51,7 +51,7 @@ async def on_reminder_button(
     callback: CallbackQuery, callback_data: ReminderCallback, session: AsyncSession
 ) -> None:
     message = callback.message
-    user = await _onboarded_user(session, callback.from_user.id)
+    user = await onboarded_user(session, callback.from_user.id)
     if user is None or not isinstance(message, Message):
         await callback.answer(NEED_PROFILE, show_alert=True)
         return
