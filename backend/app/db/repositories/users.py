@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -38,3 +38,7 @@ class UserRepository:
         # populate_existing: обновить объект, если он уже загружен в эту сессию
         result = await self.session.execute(stmt, execution_options={"populate_existing": True})
         return result.scalar_one()
+
+    async def delete(self, user_id: int) -> None:
+        """Удаляет пользователя. Все его записи удаляет БД каскадом (ON DELETE CASCADE)."""
+        await self.session.execute(delete(User).where(User.id == user_id))

@@ -50,6 +50,7 @@ async def configure_bot(bot: Bot, settings: Settings) -> None:
             BotCommand(command="checkin", description="Чек-ин: сон и самочувствие"),
             BotCommand(command="settings", description="Напоминания"),
             BotCommand(command="help", description="Что умеет бот"),
+            BotCommand(command="delete_me", description="Удалить все мои данные"),
         ]
     )
     if settings.webapp_is_https:

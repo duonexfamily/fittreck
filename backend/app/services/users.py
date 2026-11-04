@@ -19,3 +19,9 @@ async def register_user(session: AsyncSession, tg_user: TelegramUser) -> User:
 
 async def get_by_telegram_id(session: AsyncSession, telegram_id: int) -> User | None:
     return await UserRepository(session).get_by_telegram_id(telegram_id)
+
+
+async def delete_user(session: AsyncSession, user: User) -> None:
+    """Удаляет пользователя и все его данные: еду, вес, тренировки, чек-ины, настройки."""
+    await UserRepository(session).delete(user.id)
+    await session.commit()
