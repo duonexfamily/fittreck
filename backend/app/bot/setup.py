@@ -47,6 +47,7 @@ async def configure_bot(bot: Bot, settings: Settings) -> None:
     await bot.set_my_commands(
         [
             BotCommand(command="start", description="Начать"),
+            BotCommand(command="checkin", description="Чек-ин: сон и самочувствие"),
             BotCommand(command="settings", description="Напоминания"),
             BotCommand(command="help", description="Что умеет бот"),
         ]

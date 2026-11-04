@@ -28,7 +28,7 @@ class CheckinRepository:
         return result.first() is not None
 
     async def upsert(self, user_id: int, day: date, values: dict[str, Any]) -> Checkin:
-        """Записывает чек-ин за день. Повторная запись заменяет все поля."""
+        """Записывает чек-ин за день. Повторная запись заменяет только переданные поля."""
         stmt = (
             insert(Checkin)
             .values(user_id=user_id, date=day, **values)
