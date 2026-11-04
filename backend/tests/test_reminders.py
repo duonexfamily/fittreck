@@ -90,7 +90,9 @@ async def test_collect_due_uses_user_timezone(monkeypatch: pytest.MonkeyPatch) -
     # 10:30 UTC = 13:30 в Москве: обед пора, а в Лондоне ещё 10:30
     moscow = SimpleNamespace(id=1, telegram_id=101, timezone="Europe/Moscow")
     london = SimpleNamespace(id=2, telegram_id=102, timezone="Europe/London")
-    repo = FakeRepo([(moscow, {}), (london, {})], handled=set())
+    # Тренировка в 10:00 по Лондону тоже попала бы в окно — здесь проверяем только обед
+    no_workout = {"workout": {"on": False}}
+    repo = FakeRepo([(moscow, no_workout), (london, no_workout)], handled=set())
     monkeypatch.setattr(reminders, "ReminderRepository", lambda _session: repo)
     monkeypatch.setattr(reminders, "_already_done", AsyncMock(return_value=False))
 

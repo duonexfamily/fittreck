@@ -10,6 +10,7 @@ from app.services.reminders import (
     SHIFT_STEPS,
     ReminderSetting,
 )
+from app.services.streaks import days_word
 
 
 def open_app_keyboard(
@@ -133,15 +134,6 @@ def checkin_done_keyboard(day: date, webapp_url: str | None) -> InlineKeyboardMa
     return InlineKeyboardMarkup(
         inline_keyboard=[[_checkin_app_button(webapp_url, day, "🕒 Добавить время сна")]]
     )
-
-
-def days_word(n: int) -> str:
-    """1 день, 2 дня, 5 дней, 11 дней, 21 день."""
-    if n % 10 == 1 and n % 100 != 11:
-        return "день"
-    if 2 <= n % 10 <= 4 and not 12 <= n % 100 <= 14:
-        return "дня"
-    return "дней"
 
 
 def checkin_done_text(values: Mapping[str, int | None], streak: int = 0) -> str:

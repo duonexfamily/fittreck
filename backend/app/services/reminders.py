@@ -13,7 +13,10 @@ from app.db.repositories.body_metrics import BodyMetricRepository
 from app.db.repositories.checkins import CheckinRepository
 from app.db.repositories.meals import MealRepository
 from app.db.repositories.reminders import ReminderRepository
-from app.services import water
+from app.db.repositories.stats import StatsRepository
+from app.db.repositories.workouts import WorkoutRepository
+from app.services import streaks, water
+from app.services.profile import get_targets
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,6 +45,10 @@ REMINDER_TYPES: tuple[ReminderType, ...] = (
         "Запиши завтрак — это займёт пару секунд 🍳", "🍳 Записать", "/nutrition?meal=breakfast",
     ),
     ReminderType(
+        "workout", "🏋️ Тренировка", time(10, 0), True,
+        "Сегодня тренировка по плану 🏋️ Удачи!", "🏋️ Открыть тренировку", "/workouts",
+    ),
+    ReminderType(
         "lunch", "🍲 Обед", time(13, 30), True,
         "Запиши обед за 5 секунд 🍲", "🍲 Записать", "/nutrition?meal=lunch",
     ),
@@ -52,6 +59,11 @@ REMINDER_TYPES: tuple[ReminderType, ...] = (
     ReminderType(
         "dinner", "🍽 Ужин", time(19, 30), True,
         "Как прошёл ужин? Запиши его 🍽", "🍽 Записать", "/nutrition?meal=dinner",
+    ),
+    # Текст собирается из данных дня, см. day_summary_text
+    ReminderType(
+        "summary", "🌙 Итог дня", time(21, 0), False,
+        "Итог дня 🌙", "📈 Посмотреть прогресс", "/stats",
     ),
 )  # fmt: skip
 REMINDERS_BY_KIND: dict[str, ReminderType] = {t.kind: t for t in REMINDER_TYPES}
@@ -78,6 +90,22 @@ class Outgoing:
     type: ReminderType
     # Дата в часовом поясе пользователя — на неё пишет быстрый чек-ин
     day: date
+    # Текст и экран под данные пользователя. None — как в типе напоминания
+    text: str | None = None
+    path: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class DayFacts:
+    """Что записано за день — для вечернего итога."""
+
+    kcal: float | None
+    kcal_target: int | None
+    water_ml: int
+    water_target_ml: int
+    workouts: int
+    checkin: bool
+    streak: int
 
 
 def parse_settings(raw: Mapping[str, Any]) -> dict[str, ReminderSetting]:
@@ -116,6 +144,75 @@ def due_kinds(settings: Mapping[str, ReminderSetting], local_now: datetime) -> I
         at = datetime.combine(local_now.date(), s.time, tzinfo=local_now.tzinfo)
         if at <= local_now < at + LATE_WINDOW:
             yield kind
+
+
+def _liters(ml: int) -> str:
+    return f"{ml / 1000:.1f}".replace(".", ",")
+
+
+def day_summary_text(facts: DayFacts) -> str | None:
+    """Вечерний итог. None — за день ничего нет и серии нет: писать незачем."""
+    lines: list[str] = []
+    if facts.kcal is not None:
+        target = f" из {facts.kcal_target}" if facts.kcal_target else ""
+        lines.append(f"🍽 {round(facts.kcal)}{target} ккал")
+    if facts.water_ml > 0:
+        lines.append(f"💧 {_liters(facts.water_ml)} из {_liters(facts.water_target_ml)} л")
+    if facts.workouts:
+        lines.append("🏋️ Тренировка выполнена")
+    if facts.checkin:
+        lines.append("😴 Чек-ин есть")
+
+    if not lines:
+        if facts.streak == 0:
+            return None
+        days = f"{facts.streak} {streaks.days_word(facts.streak)}"
+        return (
+            f"Сегодня ещё нет записей — серия {days} может прерваться 🔥\n"
+            "Хватит одной записи до полуночи: еда, вода, вес или чек-ин."
+        )
+
+    text = "Итог дня 🌙\n" + "\n".join(lines)
+    if facts.streak > 1:
+        text += f"\n🔥 Серия: {facts.streak} {streaks.days_word(facts.streak)} подряд"
+    return text
+
+
+async def _planned_workout_id(session: AsyncSession, user: User, day: date) -> int | None:
+    workouts = await WorkoutRepository(session).list_range(user.id, day, day)
+    planned = [w for w in workouts if w.status == "planned"]
+    # list_range отдаёт новые первыми — напоминаем о самой ранней из запланированных
+    return planned[-1].id if planned else None
+
+
+async def _day_facts(session: AsyncSession, user: User, day: date) -> DayFacts:
+    stats = StatsRepository(session)
+    kcal = (await stats.daily_kcal(user.id, day, day)).get(day)
+    targets = await get_targets(session, user)
+    water_day = await water.get_day(session, user, day)
+    count, _ = (await stats.daily_workouts(user.id, day, day)).get(day, (0, 0.0))
+    return DayFacts(
+        kcal=kcal,
+        kcal_target=targets.targets.kcal if targets else None,
+        water_ml=water_day.ml,
+        water_target_ml=water_day.target_ml,
+        workouts=count,
+        checkin=await CheckinRepository(session).exists(user.id, day),
+        streak=(await streaks.get_streak(session, user)).current,
+    )
+
+
+async def _compose(
+    session: AsyncSession, user: User, kind: str, day: date
+) -> tuple[str | None, str | None] | None:
+    """Текст и экран под данные пользователя. None — отправлять незачем."""
+    if kind == "workout":
+        workout_id = await _planned_workout_id(session, user, day)
+        return None if workout_id is None else (None, f"/workouts/{workout_id}")
+    if kind == "summary":
+        text = day_summary_text(await _day_facts(session, user, day))
+        return None if text is None else (text, None)
+    return None, None
 
 
 async def get_settings(session: AsyncSession, user: User) -> dict[str, ReminderSetting]:
@@ -191,7 +288,14 @@ async def collect_due(session: AsyncSession, now: datetime) -> list[Outgoing]:
             if (user.id, kind, day) in handled:
                 continue
             done = await _already_done(session, user, kind, day)
-            if await repo.mark_handled(user.id, kind, day) and not done:
-                result.append(Outgoing(user.id, user.telegram_id, REMINDERS_BY_KIND[kind], day))
+            if not await repo.mark_handled(user.id, kind, day) or done:
+                continue
+            composed = await _compose(session, user, kind, day)
+            if composed is None:
+                continue
+            text, path = composed
+            result.append(
+                Outgoing(user.id, user.telegram_id, REMINDERS_BY_KIND[kind], day, text, path)
+            )
     await session.commit()
     return result

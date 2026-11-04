@@ -46,6 +46,15 @@ def compute_streak(active: Set[date], today: date) -> Streak:
     return Streak(current=current, best=best, today_done=today_done, week=week)
 
 
+def days_word(n: int) -> str:
+    """1 день, 2 дня, 5 дней, 11 дней, 21 день."""
+    if n % 10 == 1 and n % 100 != 11:
+        return "день"
+    if 2 <= n % 10 <= 4 and not 12 <= n % 100 <= 14:
+        return "дня"
+    return "дней"
+
+
 async def get_streak(session: AsyncSession, user: User) -> Streak:
     today = user_today(user)
     since = today - timedelta(days=HISTORY_DAYS - 1)

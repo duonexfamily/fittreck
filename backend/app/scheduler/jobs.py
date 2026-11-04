@@ -28,17 +28,18 @@ def reminder_keyboard(item: reminders.Outgoing, webapp_url: str) -> InlineKeyboa
     # На чек-ин отвечают прямо в чате: оценки кнопками, подробности — в приложении
     if item.type.kind == "checkin":
         return checkin_step_keyboard(checkins.QUICK_FIELDS[0], item.day, webapp_url)
-    return open_app_keyboard(webapp_url, item.type.path, item.type.button)
+    return open_app_keyboard(webapp_url, item.path or item.type.path, item.type.button)
 
 
 async def _send(bot: Bot, item: reminders.Outgoing, webapp_url: str) -> None:
     keyboard = reminder_keyboard(item, webapp_url)
+    text = item.text or item.type.text
     try:
-        await bot.send_message(item.chat_id, item.type.text, reply_markup=keyboard)
+        await bot.send_message(item.chat_id, text, reply_markup=keyboard)
     except TelegramRetryAfter as error:
         # Превысили лимит — ждём, сколько просит Telegram, и пробуем ещё раз
         await asyncio.sleep(error.retry_after)
-        await bot.send_message(item.chat_id, item.type.text, reply_markup=keyboard)
+        await bot.send_message(item.chat_id, text, reply_markup=keyboard)
 
 
 async def run_once(
