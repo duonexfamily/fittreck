@@ -25,3 +25,30 @@ class DayStatsOut(BaseModel):
     workouts: int
     # Повторы × вес по выполненным подходам
     volume_kg: float
+
+
+class InsightsOut(BaseModel):
+    # Пусто — данных пока мало для сравнения
+    insights: list[str]
+
+
+class RecordOut(BaseModel):
+    exercise: str
+    weight_kg: float
+    reps: int
+    date: dt.date
+
+
+class AchievementOut(BaseModel):
+    key: str
+    emoji: str
+    title: str
+    # Прогресс не больше цели
+    progress: int
+    goal: int
+    achieved: bool
+
+
+class RecordsOut(BaseModel):
+    records: list[RecordOut]
+    achievements: list[AchievementOut]

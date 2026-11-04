@@ -57,7 +57,7 @@ export default function WaterCard({ date }: { date: string }) {
         </button>
       </div>
       {add.isError && (
-        <p className="mt-2 text-sm text-red-500">Не получилось. Попробуйте ещё раз.</p>
+        <p className="mt-2 text-sm text-destructive">Не получилось. Попробуйте ещё раз.</p>
       )}
     </section>
   )

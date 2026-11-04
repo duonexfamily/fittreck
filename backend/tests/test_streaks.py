@@ -3,9 +3,9 @@ from datetime import date, timedelta
 import pytest
 from fastapi.testclient import TestClient
 
-from app.bot.keyboards import checkin_done_text, days_word
+from app.bot.keyboards import checkin_done_text
 from app.main import app
-from app.services.streaks import compute_streak
+from app.services.streaks import compute_streak, days_word
 
 client = TestClient(app)
 

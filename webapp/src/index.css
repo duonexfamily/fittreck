@@ -9,6 +9,8 @@
   --color-link: var(--tg-theme-link-color, #2481cc);
   --color-button: var(--tg-theme-button-color, #2481cc);
   --color-button-text: var(--tg-theme-button-text-color, #ffffff);
+  /* Ошибки и удаление — цвет темы Telegram, а не свой красный */
+  --color-destructive: var(--tg-theme-destructive-text-color, #e53935);
 }
 
 html,

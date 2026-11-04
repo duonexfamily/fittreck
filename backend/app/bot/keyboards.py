@@ -8,8 +8,10 @@ from app.services.reminders import (
     REMINDER_TYPES,
     REMINDERS_BY_KIND,
     SHIFT_STEPS,
+    WEEKDAY_NAMES,
     ReminderSetting,
 )
+from app.services.streaks import days_word
 
 
 def open_app_keyboard(
@@ -44,7 +46,7 @@ def reminders_list_keyboard(settings: Mapping[str, ReminderSetting]) -> InlineKe
         rows.append(
             [
                 InlineKeyboardButton(
-                    text=f"{mark} {t.title} · {s.time:%H:%M}",
+                    text=f"{mark} {t.title} · {when(t.kind, s)}",
                     callback_data=ReminderCallback(action="open", kind=t.kind).pack(),
                 )
             ]
@@ -79,11 +81,18 @@ def reminder_keyboard(kind: str, setting: ReminderSetting) -> InlineKeyboardMark
     )
 
 
+def when(kind: str, setting: ReminderSetting) -> str:
+    """«19:00» или «вс 19:00» для еженедельных."""
+    weekday = REMINDERS_BY_KIND[kind].weekday
+    prefix = "" if weekday is None else f"{WEEKDAY_NAMES[weekday]} "
+    return f"{prefix}{setting.time:%H:%M}"
+
+
 def reminder_text(kind: str, setting: ReminderSetting) -> str:
     status = "включено ✅" if setting.on else "выключено"
     return (
         f"<b>{REMINDERS_BY_KIND[kind].title}</b>\n"
-        f"Время: <b>{setting.time:%H:%M}</b>, {status}\n\n"
+        f"Время: <b>{when(kind, setting)}</b>, {status}\n\n"
         "Если данные за день уже внесены, бот не напомнит."
     )
 
@@ -133,15 +142,6 @@ def checkin_done_keyboard(day: date, webapp_url: str | None) -> InlineKeyboardMa
     return InlineKeyboardMarkup(
         inline_keyboard=[[_checkin_app_button(webapp_url, day, "🕒 Добавить время сна")]]
     )
-
-
-def days_word(n: int) -> str:
-    """1 день, 2 дня, 5 дней, 11 дней, 21 день."""
-    if n % 10 == 1 and n % 100 != 11:
-        return "день"
-    if 2 <= n % 10 <= 4 and not 12 <= n % 100 <= 14:
-        return "дня"
-    return "дней"
 
 
 def checkin_done_text(values: Mapping[str, int | None], streak: int = 0) -> str:

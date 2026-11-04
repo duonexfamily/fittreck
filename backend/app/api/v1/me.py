@@ -1,9 +1,10 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Response, status
 
 from app.api.deps import CurrentUser, SessionDep
 from app.api.schemas.me import MeOut, ProfileIn, TargetsOut
 from app.db.models import User
 from app.services.profile import ProfileData, get_targets, save_profile
+from app.services.users import delete_user
 
 router = APIRouter(tags=["me"])
 
@@ -34,3 +35,10 @@ async def get_me_targets(user: CurrentUser, session: SessionDep) -> TargetsOut:
         fat_g=t.fat_g,
         carbs_g=t.carbs_g,
     )
+
+
+@router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_me(user: CurrentUser, session: SessionDep) -> Response:
+    """Удаляет все данные пользователя. Следующий запрос создаст его заново, пустым."""
+    await delete_user(session, user)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

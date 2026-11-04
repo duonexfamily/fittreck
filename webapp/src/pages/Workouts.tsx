@@ -73,7 +73,7 @@ function TemplateCard({
           type="button"
           disabled={remove.isPending}
           onClick={() => (confirm ? remove.mutate() : setConfirm(true))}
-          className="shrink-0 text-xs text-red-500 disabled:opacity-50"
+          className="shrink-0 text-xs text-destructive disabled:opacity-50"
         >
           {confirm ? 'Точно удалить?' : 'Удалить'}
         </button>
@@ -180,7 +180,7 @@ export default function Workouts() {
 
       <h2 className="mt-6 font-medium">{formatDay(selected, today)}</h2>
       {(start.isError || fromTemplate.isError) && (
-        <p className="mt-2 text-sm text-red-500">Не получилось создать тренировку.</p>
+        <p className="mt-2 text-sm text-destructive">Не получилось создать тренировку.</p>
       )}
       {list.isError && <p className="mt-2 text-hint">Не удалось загрузить тренировки.</p>}
       {list.isPending && <p className="mt-2 text-hint">Загрузка…</p>}

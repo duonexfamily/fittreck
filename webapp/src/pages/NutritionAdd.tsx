@@ -198,7 +198,7 @@ function FoodCreate({ onCreated }: { onCreated: (f: Food) => void }) {
         <NumberInput label="Углеводы, г" value={raw.carbs} onChange={set('carbs')} />
       </div>
       {save.isError && (
-        <p className="mt-4 text-sm text-red-500">Не удалось сохранить. Проверьте значения.</p>
+        <p className="mt-4 text-sm text-destructive">Не удалось сохранить. Проверьте значения.</p>
       )}
     </>
   )
@@ -243,7 +243,7 @@ function QuickForm({ meal, date }: { meal: MealType; date: string }) {
       <QuickFields name={name} onName={setName} raw={raw} onRaw={setRaw} />
       <h2 className="mt-6 mb-2 text-sm font-medium text-hint">Приём пищи</h2>
       <ChoiceGroup options={MEAL_OPTIONS} value={mealType} onChange={setMealType} />
-      {save.isError && <p className="mt-4 text-sm text-red-500">Не удалось добавить запись.</p>}
+      {save.isError && <p className="mt-4 text-sm text-destructive">Не удалось добавить запись.</p>}
     </>
   )
 }
@@ -324,7 +324,7 @@ function PortionForm({ food, meal, date }: { food: Food; meal: MealType; date: s
       </div>
       <h2 className="mt-6 mb-2 text-sm font-medium text-hint">Приём пищи</h2>
       <ChoiceGroup options={MEAL_OPTIONS} value={mealType} onChange={setMealType} />
-      {save.isError && <p className="mt-4 text-sm text-red-500">Не удалось добавить продукт.</p>}
+      {save.isError && <p className="mt-4 text-sm text-destructive">Не удалось добавить продукт.</p>}
     </>
   )
 }

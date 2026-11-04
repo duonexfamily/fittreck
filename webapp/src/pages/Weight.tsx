@@ -169,7 +169,7 @@ export default function Weight() {
       )}
 
       {(save.isError || remove.isError) && (
-        <p className="mt-4 text-sm text-red-500">
+        <p className="mt-4 text-sm text-destructive">
           {remove.error instanceof ApiError && remove.error.status === 409
             ? 'Нужна хотя бы одна запись веса — по ней считается норма.'
             : 'Не получилось. Попробуйте ещё раз.'}

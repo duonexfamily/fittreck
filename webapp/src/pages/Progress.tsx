@@ -2,18 +2,22 @@ import { useQuery } from '@tanstack/react-query'
 import { useCallback, useState } from 'react'
 import { useNavigate } from 'react-router'
 
-import { type DayStats, getStatsSummary, getTargets } from '../api/client'
+import { type DayStats, getInsights, getRecords, getStatsSummary, getTargets } from '../api/client'
+import { AchievementsCard, RecordsCard } from '../components/AchievementsCard'
 import ChoiceGroup from '../components/ChoiceGroup'
 import TrendChart from '../components/TrendChart'
 import { useBackButton } from '../hooks/useBackButton'
 import { fmtSleep } from '../lib/checkin'
+import { WEEKLY_AFTER_DAYS, byWeek } from '../lib/stats'
 
-type Period = '7' | '30' | '90'
+// 0 — всё время, с первой записи
+type Period = '7' | '30' | '90' | '0'
 
 const PERIODS: { value: Period; label: string }[] = [
   { value: '7', label: 'Неделя' },
   { value: '30', label: 'Месяц' },
   { value: '90', label: '3 месяца' },
+  { value: '0', label: 'Всё время' },
 ]
 
 const num = (v: number, digits = 0) =>
@@ -44,8 +48,15 @@ export default function Progress() {
     queryFn: () => getStatsSummary(Number(period)),
   })
   const targets = useQuery({ queryKey: ['targets'], queryFn: getTargets })
+  const insights = useQuery({
+    queryKey: ['insights', period],
+    queryFn: () => getInsights(Number(period)),
+  })
+  const records = useQuery({ queryKey: ['records'], queryFn: getRecords })
 
-  const days = summary.data ?? []
+  const raw = summary.data ?? []
+  const weekly = raw.length > WEEKLY_AFTER_DAYS
+  const days = weekly ? byWeek(raw) : raw
   const dates = days.map((d) => d.date)
 
   const weight = column(days, 'weight_kg')
@@ -63,7 +74,7 @@ export default function Progress() {
   const kcal = column(days, 'kcal')
   const sleep = days.map((d) => (d.sleep_minutes === null ? null : d.sleep_minutes / 60))
   const volume = days.map((d) => (d.workouts > 0 ? d.volume_kg : null))
-  const workoutCount = days.reduce((sum, d) => sum + d.workouts, 0)
+  const workoutCount = raw.reduce((sum, d) => sum + d.workouts, 0)
 
   const avgText = (values: (number | null)[], fmt: (v: number) => string) => {
     const avg = average(values)
@@ -83,7 +94,7 @@ export default function Progress() {
     <main className="p-4">
       <h1 className="text-xl font-semibold">Прогресс</h1>
       <div className="mt-4">
-        <ChoiceGroup options={PERIODS} value={period} onChange={setPeriod} columns={3} />
+        <ChoiceGroup options={PERIODS} value={period} onChange={setPeriod} columns={2} />
       </div>
 
       {summary.isPending && <p className="mt-4 text-hint">Загружаю…</p>}
@@ -93,9 +104,32 @@ export default function Progress() {
 
       {summary.data && (
         <div className="mt-4 flex flex-col gap-3">
+          <section className="rounded-2xl bg-bg-secondary p-4">
+            <h2 className="font-medium">Наблюдения</h2>
+            {insights.data?.insights.length ? (
+              <ul className="mt-2 flex flex-col gap-2 text-sm">
+                {insights.data.insights.map((text) => (
+                  <li key={text}>{text}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-2 text-sm text-hint">
+                {insights.isPending
+                  ? 'Считаю…'
+                  : 'Пока мало данных. Отмечайте сон, самочувствие и еду хотя бы неделю — и здесь появятся связи.'}
+              </p>
+            )}
+            <p className="mt-2 text-xs text-hint">
+              Это сравнение ваших же дней, а не медицинский вывод.
+            </p>
+          </section>
+          {weekly && (
+            <p className="text-xs text-hint">Период длинный — точки на графиках по неделям.</p>
+          )}
           <TrendChart
             title="Вес"
             dates={dates}
+            weekly={weekly}
             values={weight}
             kind="line"
             format={(v) => `${num(v, 1)} кг`}
@@ -104,6 +138,7 @@ export default function Progress() {
           <TrendChart
             title="Калории"
             dates={dates}
+            weekly={weekly}
             values={kcal}
             kind="bar"
             format={(v) => `${num(v)} ккал`}
@@ -117,6 +152,7 @@ export default function Progress() {
           <TrendChart
             title="Сон"
             dates={dates}
+            weekly={weekly}
             values={sleep}
             kind="bar"
             format={fmtHours}
@@ -129,6 +165,7 @@ export default function Progress() {
                 key={s.key}
                 title={s.title}
                 dates={dates}
+                weekly={weekly}
                 values={values}
                 kind="line"
                 domain={[1, 5]}
@@ -140,11 +177,18 @@ export default function Progress() {
           <TrendChart
             title="Объём тренировок"
             dates={dates}
+            weekly={weekly}
             values={volume}
             kind="bar"
             format={(v) => `${num(v)} кг`}
             summary={workoutCount ? `${workoutCount} ${workoutsWord(workoutCount)}` : ''}
           />
+          {records.data && (
+            <>
+              <RecordsCard records={records.data.records} />
+              <AchievementsCard achievements={records.data.achievements} />
+            </>
+          )}
           <p className="text-xs text-hint">
             Нажмите на график, чтобы увидеть значение за день. Объём — повторы × вес по выполненным
             подходам.

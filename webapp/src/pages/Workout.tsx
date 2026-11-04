@@ -81,7 +81,7 @@ function SetForm({
       {exercise.kind === 'cardio' && (
         <NumberInput label="Дистанция, км" placeholder="—" {...field('km')} />
       )}
-      {failed && <p className="text-sm text-red-500">Не получилось сохранить.</p>}
+      {failed && <p className="text-sm text-destructive">Не получилось сохранить.</p>}
       <div className="flex gap-2">
         <button
           type="button"
@@ -99,7 +99,7 @@ function SetForm({
             type="button"
             disabled={pending}
             onClick={onDelete}
-            className="rounded-xl bg-bg p-3 text-red-500 disabled:opacity-50"
+            className="rounded-xl bg-bg p-3 text-destructive disabled:opacity-50"
             aria-label="Удалить подход"
           >
             Удалить
@@ -209,7 +209,7 @@ function ExerciseCard({
           ))}
         </ul>
       )}
-      {check.isError && <p className="mt-1 text-sm text-red-500">Не получилось отметить.</p>}
+      {check.isError && <p className="mt-1 text-sm text-destructive">Не получилось отметить.</p>}
       {editing === 'new' ? (
         // Следующий подход начинается с прошлых значений — обычно меняется одна цифра
         form(last ? setToRaw(exercise.kind, last) : EMPTY_SET_RAW, 'Добавить подход')
@@ -273,7 +273,7 @@ function SaveTemplate({ workoutId }: { workoutId: number }) {
         placeholder="Название, например «Ноги»"
         className="mt-2 w-full rounded-xl bg-bg p-3 outline-none"
       />
-      {save.isError && <p className="mt-2 text-sm text-red-500">Не получилось сохранить.</p>}
+      {save.isError && <p className="mt-2 text-sm text-destructive">Не получилось сохранить.</p>}
       <div className="mt-2 flex gap-2">
         <button
           type="button"
@@ -344,7 +344,7 @@ function Outcome({ workout, onSaved }: { workout: WorkoutData; onSaved: () => vo
         placeholder="Заметка: самочувствие, что получилось"
         className="mt-3 w-full resize-none rounded-xl bg-bg p-3 outline-none"
       />
-      {save.isError && <p className="mt-2 text-sm text-red-500">Не получилось сохранить.</p>}
+      {save.isError && <p className="mt-2 text-sm text-destructive">Не получилось сохранить.</p>}
       <MainAction text="Сохранить" onClick={submit} loading={save.isPending} />
     </section>
   )
@@ -480,11 +480,11 @@ export default function Workout() {
         type="button"
         disabled={remove.isPending}
         onClick={() => (confirmDelete ? remove.mutate() : setConfirmDelete(true))}
-        className="mt-6 w-full rounded-2xl bg-bg-secondary p-4 font-medium text-red-500 disabled:opacity-50"
+        className="mt-6 w-full rounded-2xl bg-bg-secondary p-4 font-medium text-destructive disabled:opacity-50"
       >
         {confirmDelete ? 'Точно удалить? Нажмите ещё раз' : 'Удалить тренировку'}
       </button>
-      {remove.isError && <p className="mt-4 text-sm text-red-500">Не получилось удалить.</p>}
+      {remove.isError && <p className="mt-4 text-sm text-destructive">Не получилось удалить.</p>}
     </main>
   )
 }

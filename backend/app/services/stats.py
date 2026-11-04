@@ -12,8 +12,11 @@ from app.db.repositories.stats import StatsRepository
 from app.services.checkins import sleep_minutes
 from app.services.profile import user_today
 
-# Периоды на экране «Прогресс», дней
-PERIODS = (7, 30, 90)
+# Периоды на экране «Прогресс», дней. ALL_TIME — с первой записи
+ALL_TIME = 0
+PERIODS = (7, 30, 90, ALL_TIME)
+# «Всё время» — не дольше трёх лет: дальше график нечитаем, а ответ тяжёлый
+MAX_ALL_TIME_DAYS = 3 * 365
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,12 +68,23 @@ def build_summary(
     return result
 
 
+async def period_start(session: AsyncSession, user: User, days: int, today: date) -> date:
+    """Первый день периода. Для «всего времени» — день первой записи (без записей — 30 дней)."""
+    if days not in PERIODS:
+        raise ValueError(days)
+    if days != ALL_TIME:
+        return today - timedelta(days=days - 1)
+    earliest = today - timedelta(days=MAX_ALL_TIME_DAYS - 1)
+    active = await StatsRepository(session).active_dates(user.id, earliest)
+    return min(active) if active else today - timedelta(days=29)
+
+
 async def get_summary(session: AsyncSession, user: User, days: int) -> list[DayStats]:
-    """Итоги за последние days дней, включая сегодня."""
+    """Итоги за последние days дней, включая сегодня. ALL_TIME — с первой записи."""
     if days not in PERIODS:
         raise ValueError(days)
     date_to = user_today(user)
-    date_from = date_to - timedelta(days=days - 1)
+    date_from = await period_start(session, user, days, date_to)
     repo = StatsRepository(session)
     return build_summary(
         date_from,

@@ -331,3 +331,26 @@ export interface DayStats {
 }
 
 export const getStatsSummary = (days: number) => api<DayStats[]>(`/stats/summary?days=${days}`)
+
+export const getInsights = (days: number) =>
+  api<{ insights: string[] }>(`/stats/insights?days=${days}`)
+
+export interface ExerciseRecord {
+  exercise: string
+  weight_kg: number
+  reps: number
+  date: string
+}
+
+export interface Achievement {
+  key: string
+  emoji: string
+  title: string
+  // Прогресс не больше цели
+  progress: number
+  goal: number
+  achieved: boolean
+}
+
+export const getRecords = () =>
+  api<{ records: ExerciseRecord[]; achievements: Achievement[] }>('/stats/records')
