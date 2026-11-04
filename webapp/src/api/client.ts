@@ -166,3 +166,94 @@ export const getWater = (date: string) => api<WaterDay>(`/water?date=${date}`)
 
 export const addWater = (body: { date: string; delta_ml: number }) =>
   api<WaterDay>('/water', { method: 'POST', body: JSON.stringify(body) })
+
+export type MuscleGroup = 'chest' | 'back' | 'shoulders' | 'arms' | 'legs' | 'core' | 'full_body'
+/** strength — повторения × вес, cardio — время и дистанция, stretch — на время. */
+export type ExerciseKind = 'strength' | 'cardio' | 'stretch'
+/** planned — не завершена, done — выполнена. */
+export type WorkoutStatus = 'planned' | 'done'
+
+export interface Exercise {
+  id: number
+  name: string
+  muscle_group: MuscleGroup
+  kind: ExerciseKind
+  own: boolean
+}
+
+export type ExerciseIn = Omit<Exercise, 'id' | 'own'>
+
+/** Значения подхода. Заполнены поля, подходящие виду упражнения. */
+export interface SetValues {
+  reps: number | null
+  weight_kg: number | null
+  duration_s: number | null
+  distance_m: number | null
+}
+
+export interface WorkoutSet extends SetValues {
+  id: number
+  exercise_id: number
+  set_no: number
+}
+
+export interface Workout {
+  id: number
+  date: string
+  status: WorkoutStatus
+  started_at: string | null
+  finished_at: string | null
+  rpe: number | null
+  note: string | null
+  exercises: { exercise: Exercise; sets: WorkoutSet[] }[]
+  volume_kg: number
+}
+
+export interface WorkoutSummary {
+  id: number
+  date: string
+  status: WorkoutStatus
+  rpe: number | null
+  exercise_names: string[]
+  set_count: number
+  volume_kg: number
+}
+
+/** Передаются только меняемые поля. rpe/note = null — очистить. */
+export type WorkoutPatch = Partial<Pick<Workout, 'status' | 'rpe' | 'note'>>
+
+export const searchExercises = (p: {
+  query: string
+  muscle?: MuscleGroup
+  kind?: ExerciseKind
+}) => {
+  const params = new URLSearchParams({ query: p.query })
+  if (p.muscle) params.set('muscle', p.muscle)
+  if (p.kind) params.set('kind', p.kind)
+  return api<Exercise[]>(`/exercises?${params}`)
+}
+
+export const createExercise = (body: ExerciseIn) =>
+  api<Exercise>('/exercises', { method: 'POST', body: JSON.stringify(body) })
+
+export const getWorkouts = (from: string, to: string) =>
+  api<WorkoutSummary[]>(`/workouts?from=${from}&to=${to}`)
+
+export const createWorkout = (date: string) =>
+  api<Workout>('/workouts', { method: 'POST', body: JSON.stringify({ date }) })
+
+export const getWorkout = (id: number) => api<Workout>(`/workouts/${id}`)
+
+export const updateWorkout = (id: number, body: WorkoutPatch) =>
+  api<Workout>(`/workouts/${id}`, { method: 'PATCH', body: JSON.stringify(body) })
+
+export const deleteWorkout = (id: number) => api<void>(`/workouts/${id}`, { method: 'DELETE' })
+
+export const addSet = (workoutId: number, body: SetValues & { exercise_id: number }) =>
+  api<WorkoutSet>(`/workouts/${workoutId}/sets`, { method: 'POST', body: JSON.stringify(body) })
+
+/** Значения подхода заменяются целиком. */
+export const updateSet = (id: number, body: SetValues) =>
+  api<WorkoutSet>(`/workout-sets/${id}`, { method: 'PATCH', body: JSON.stringify(body) })
+
+export const deleteSet = (id: number) => api<void>(`/workout-sets/${id}`, { method: 'DELETE' })

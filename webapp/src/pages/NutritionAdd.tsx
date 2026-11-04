@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
 
 import {
@@ -20,6 +20,7 @@ import NutrientsRow from '../components/NutrientsRow'
 import QuickFields, { type QuickRaw } from '../components/QuickFields'
 import SliderField from '../components/SliderField'
 import { useBackButton } from '../hooks/useBackButton'
+import { useDebounced } from '../hooks/useDebounced'
 import { useMainButton } from '../hooks/useMainButton'
 import {
   MEAL_LABELS,
@@ -33,15 +34,6 @@ import {
 import { haptic } from '../lib/telegram'
 
 const MEAL_OPTIONS = MEAL_TYPES.map((value) => ({ value, label: MEAL_LABELS[value] }))
-
-function useDebounced<T>(value: T, ms: number): T {
-  const [debounced, setDebounced] = useState(value)
-  useEffect(() => {
-    const t = setTimeout(() => setDebounced(value), ms)
-    return () => clearTimeout(t)
-  }, [value, ms])
-  return debounced
-}
 
 function FoodList({ foods, onSelect }: { foods: Food[]; onSelect: (f: Food) => void }) {
   return (
