@@ -17,7 +17,7 @@ from app.bot.keyboards import (
 from app.bot.routers.settings import NEED_PROFILE, onboarded_user
 from app.bot.routers.start import answer_with_app
 from app.core.config import get_settings
-from app.services import checkins
+from app.services import checkins, streaks
 from app.services.profile import user_today
 
 router = Router(name="checkin_quick")
@@ -73,8 +73,10 @@ async def on_checkin_button(
     following = next_field(callback_data.field)
     if following is None:
         values = {field: getattr(checkin, field) for field in CHECKIN_STEPS}
+        streak = await streaks.get_streak(session, user)
         await message.edit_text(
-            checkin_done_text(values), reply_markup=checkin_done_keyboard(day, webapp_url)
+            checkin_done_text(values, streak.current),
+            reply_markup=checkin_done_keyboard(day, webapp_url),
         )
     else:
         question, _ = CHECKIN_STEPS[following]

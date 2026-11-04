@@ -31,7 +31,7 @@ Mini App — веб-приложение внутри Telegram: графики, 
 - Backend: Python 3.12, FastAPI, uvicorn, aiogram 3.x, SQLAlchemy 2.x async + asyncpg,
   Alembic, pydantic v2, pydantic-settings. Напоминания — asyncio-цикл без APScheduler. Зависимости — `uv`.
 - Mini App: React 18 + TypeScript + Vite, react-router 7, TanStack Query, Tailwind CSS 4,
-  официальный `telegram-web-app.js` через обёртку `src/lib/telegram.ts`. Позже: Recharts, Zod.
+  официальный `telegram-web-app.js` через обёртку `src/lib/telegram.ts`. Графики — свои SVG. Позже: Zod.
 - Тесты и линт: pytest, ruff, mypy; Vitest, ESLint, Prettier. CI — GitHub Actions.
 
 ## Структура
@@ -91,6 +91,7 @@ Mini App в Telegram локально: `npm run dev -- --host 127.0.0.1` в `web
    Шаблоны и календарь тренировок — ✅ (05.11.2026). Чек-ины сна и самочувствия — ✅ (05.11.2026).
    Быстрый чек-ин кнопками в боте (`/checkin`) — ✅ (05.11.2026).
 4. Графики, умные напоминания, стрики, полировка, релиз.
+   Стрики — ✅ (05.11.2026). Графики — свои SVG без библиотек (решение 05.11.2026), Recharts не ставим.
 
 ## Правила работы ИИ-ассистента
 - Перед крупной задачей сверяться с `PROJECT_IDEA.md` и `TECH_SPEC.md`.
