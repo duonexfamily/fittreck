@@ -33,8 +33,9 @@
 - **Redis не используем на старте.** Сложный ввод идёт в Mini App, FSM бота минимальна → `MemoryStorage`.
   Напоминания считаются из БД, состояние в памяти не нужно. Redis добавим, только если понадобится.
 - **Бот в продакшене — webhook, локально — polling.**
-- **Строго 1 реплика** на Railway: планировщик напоминаний работает внутри процесса.
-  При масштабировании нужна блокировка (Postgres advisory lock), иначе напоминания задвоятся.
+- **1 реплика** на Railway: планировщик напоминаний работает внутри процесса.
+  Дублей не будет и при двух процессах (например, во время деплоя): отметка в `reminder_log`
+  ставится до отправки, её получает только один.
 
 ### 1.2. Окружения
 
@@ -80,14 +81,14 @@ feature-ветка → Pull Request → GitHub Actions (lint + tests) → merge 
 
 ### 3.1. Стек
 Python 3.12, FastAPI, uvicorn, aiogram 3.x, SQLAlchemy 2.x async + asyncpg, Alembic,
-pydantic v2 + pydantic-settings, APScheduler. Менеджер зависимостей — `uv` (`pyproject.toml` + `uv.lock`).
+pydantic v2 + pydantic-settings. Напоминания — фоновый asyncio-цикл, без APScheduler. Менеджер зависимостей — `uv` (`pyproject.toml` + `uv.lock`).
 
 ### 3.2. Запуск приложения (lifespan FastAPI)
 1. Чтение конфига, создание engine БД.
 2. Создание `Bot` и `Dispatcher`, подключение роутеров.
 3. prod: `set_webhook`; dev: запуск polling в фоновой задаче.
-4. Старт APScheduler.
-5. На остановке: закрытие сессии бота, scheduler, engine.
+4. Старт цикла напоминаний (только при HTTPS-адресе Mini App — в сообщениях кнопка на экран).
+5. На остановке: отмена фоновых задач, закрытие сессии бота, engine.
 
 ### 3.3. Структура
 ```
@@ -185,7 +186,7 @@ backend/
 | Таблица | Ключевые поля |
 |---|---|
 | `users` | `telegram_id` (unique), `first_name`, `username`, `sex`, `birth_date`, `height_cm`, `goal`, `activity_level`, `timezone`, `onboarded_at` |
-| `user_settings` | `user_id`, `reminders` (jsonb: тип → время, вкл/выкл), `quiet_from`, `quiet_to` |
+| `user_settings` | `user_id` (unique), `reminders` (jsonb: `{"lunch": {"on": true, "time": "13:30"}}`; нет ключа — по умолчанию). Строка создаётся при первом изменении |
 | `foods` | `name`, `kcal`, `protein`, `fat`, `carbs` (на 100 г), `owner_id` (null = системный) |
 | `meals` | `user_id`, `date`, `meal_type` (breakfast/lunch/dinner/snack) |
 | `meal_items` | `meal_id`, `food_id` (nullable), `name`, `grams`, `kcal`, `protein`, `fat`, `carbs` (снимок значений) |
@@ -196,7 +197,7 @@ backend/
 | `workout_sets` | `workout_id`, `exercise_id`, `set_no`, `reps`, `weight_kg`, `duration_s`, `distance_m` |
 | `workout_templates`, `template_exercises` | шаблоны программ |
 | `checkins` | `user_id`, `date` (unique вместе), `bed_time`, `wake_time`, `sleep_quality`, `energy`, `stress`, `mood`, `note` |
-| `reminder_log` | `user_id`, `type`, `sent_on` — защита от повторной отправки |
+| `reminder_log` | `user_id`, `type`, `sent_on` (местная дата), unique — напоминание за день обработано (отправлено или не нужно) |
 
 - Индексы: `(user_id, date)` на всех дневниковых таблицах, поиск по `foods.name` — `pg_trgm`.
 - Системные справочники (`foods`, позже `exercises`) заполняются data-миграцией Alembic: попадают в
@@ -209,17 +210,23 @@ backend/
 ## 7. Бот
 
 - `/start` — регистрация, приветствие, кнопка «Открыть приложение». Установка Menu Button с Mini App.
-- `/settings` — краткие настройки напоминаний (полные — в Mini App).
+- `/settings` — напоминания кнопками: список типов → карточка (вкл/выкл, время −1 ч / −15 / +15 / +1 ч).
+  Только после анкеты. Данные кнопок (`rem:<action>:<kind>:<minutes>`) проверяются на сервере.
 - Быстрый чек-ин кнопками прямо в чате (сон, энергия 1–5) — пишет в ту же таблицу `checkins`.
 - **Переход в нужный экран:** inline-кнопка `WebAppInfo(url=f"{WEBAPP_URL}/nutrition?meal=lunch")`.
   Mini App читает путь и параметры через react-router. Для ссылок вне чата — `startapp` у Mini App из BotFather.
 - Троттлинг входящих апдейтов middleware.
 
 ### 7.1. Напоминания
-- APScheduler, задача раз в минуту.
-- Выбирает пользователей, у которых в их часовом поясе наступило время напоминания и сегодня ещё нет записи в `reminder_log`.
-- Пропускает, если данные уже внесены (например, обед уже записан) или идут тихие часы.
-- Отправка с паузой ~30 сообщений/сек (лимиты Telegram). Ошибка `Forbidden` (бот заблокирован) → отключить напоминания пользователю.
+- `app/scheduler/jobs.py`: asyncio-цикл, проход в начале каждой минуты. Логика — `services/reminders.py`.
+- Типы и значения по умолчанию: вес 08:00 (выкл), завтрак 09:30 (выкл), обед 13:30, вода 16:00, ужин 19:30.
+  Кнопка ведёт на экран: `/weight`, `/nutrition?meal=<тип>`, `/nutrition` (вода).
+- Получатели — прошедшие анкету. Время — в часовом поясе пользователя.
+- Пора, если время наступило не дольше 60 минут назад (досылка после перезапуска) и нет записи в `reminder_log`.
+- Данные уже внесены (приём пищи с продуктами, вода ≥ ориентира, вес за день) → только отметка, без сообщения.
+- Отметка до отправки (`INSERT … ON CONFLICT DO NOTHING`), отправка с паузой 40 мс (~25 сообщений/с),
+  `RetryAfter` → ждём и повторяем. `Forbidden` (бот заблокирован) → все напоминания пользователя выключаются.
+- Тихих часов нет: время каждого напоминания задаёт сам пользователь.
 
 ---
 

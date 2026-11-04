@@ -15,3 +15,7 @@ async def register_user(session: AsyncSession, tg_user: TelegramUser) -> User:
     )
     await session.commit()
     return user
+
+
+async def get_by_telegram_id(session: AsyncSession, telegram_id: int) -> User | None:
+    return await UserRepository(session).get_by_telegram_id(telegram_id)
