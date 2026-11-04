@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import User
 from app.db.repositories.body_metrics import BodyMetricRepository
+from app.db.repositories.checkins import CheckinRepository
 from app.db.repositories.meals import MealRepository
 from app.db.repositories.reminders import ReminderRepository
 from app.services import water
@@ -28,6 +29,10 @@ class ReminderType:
 
 
 REMINDER_TYPES: tuple[ReminderType, ...] = (
+    ReminderType(
+        "checkin", "😴 Сон", time(8, 0), False,
+        "Доброе утро! Как спалось? 😴", "😴 Отметить сон", "/checkin",
+    ),
     ReminderType(
         "weight", "⚖️ Вес", time(8, 0), False,
         "Время взвеситься ⚖️ Лучше утром, до завтрака.", "⚖️ Записать вес", "/weight",
@@ -159,6 +164,8 @@ async def _already_done(session: AsyncSession, user: User, kind: str, day: date)
         return water_day.ml >= water_day.target_ml
     if kind == "weight":
         return bool(await BodyMetricRepository(session).list_weights(user.id, day))
+    if kind == "checkin":
+        return await CheckinRepository(session).exists(user.id, day)
     return False
 
 

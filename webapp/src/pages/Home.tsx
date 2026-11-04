@@ -9,7 +9,7 @@ const SECTIONS: { emoji: string; title: string; hint: string; to?: string }[] = 
   { emoji: '🍽', title: 'Питание', hint: 'Дневник, КБЖУ, вода', to: '/nutrition' },
   { emoji: '⚖️', title: 'Вес', hint: 'Журнал и график', to: '/weight' },
   { emoji: '🏋️', title: 'Тренировки', hint: 'Подходы, RPE', to: '/workouts' },
-  { emoji: '😴', title: 'Сон и самочувствие', hint: 'Скоро' },
+  { emoji: '😴', title: 'Сон и самочувствие', hint: 'Чек-ин дня', to: '/checkin' },
   { emoji: '📈', title: 'Прогресс', hint: 'Скоро' },
 ]
 
