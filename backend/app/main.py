@@ -128,7 +128,9 @@ if (STATIC_DIR / "index.html").is_file():
         candidate = (STATIC_DIR / full_path).resolve()
         if full_path and candidate.is_file() and candidate.is_relative_to(STATIC_DIR):
             return FileResponse(candidate)
-        return FileResponse(STATIC_DIR / "index.html")
+        # index.html всегда сверяем с сервером: после деплоя он ссылается на новые чанки.
+        # Чанки в /assets с хешем в имени — их кэш не мешает
+        return FileResponse(STATIC_DIR / "index.html", headers={"Cache-Control": "no-cache"})
 
 
 if __name__ == "__main__":
