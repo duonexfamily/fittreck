@@ -19,6 +19,7 @@ from app.core.config import get_settings
 from app.core.keepalive import keepalive_loop
 from app.core.logging import setup_logging
 from app.db.session import create_engine, create_sessionmaker
+from app.scheduler.jobs import reminders_loop
 
 logger = logging.getLogger(__name__)
 
@@ -64,13 +65,20 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         )
         logger.info("Самопинг включён: раз в %s мин", settings.keepalive_minutes)
 
+    # Напоминания содержат кнопку Mini App — без HTTPS-адреса их не отправить
+    reminders_task: asyncio.Task[None] | None = None
+    if settings.webapp_is_https:
+        reminders_task = asyncio.create_task(reminders_loop(bot, sessionmaker, settings.webapp_url))
+        logger.info("Напоминания включены")
+
     try:
         yield
     finally:
-        if keepalive_task is not None:
-            keepalive_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await keepalive_task
+        for task in (reminders_task, keepalive_task):
+            if task is not None:
+                task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await task
         if polling_task is not None:
             await dp.stop_polling()
             polling_task.cancel()
