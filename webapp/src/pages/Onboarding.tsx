@@ -2,9 +2,18 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useState } from 'react'
 import { useNavigate } from 'react-router'
 
-import { type Activity, type Goal, type Sex, getMe, getTargets, putProfile } from '../api/client'
+import {
+  type Activity,
+  type Goal,
+  type Me,
+  type Sex,
+  getMe,
+  getTargets,
+  putProfile,
+} from '../api/client'
 import ChoiceGroup from '../components/ChoiceGroup'
 import SliderField from '../components/SliderField'
+import { useBackButton } from '../hooks/useBackButton'
 import { useMainButton } from '../hooks/useMainButton'
 import { haptic } from '../lib/telegram'
 
@@ -47,23 +56,37 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 export default function Onboarding() {
+  const me = useQuery({ queryKey: ['me'], queryFn: getMe })
+  const onboarded = Boolean(me.data?.onboarded_at)
+  const targets = useQuery({ queryKey: ['targets'], queryFn: getTargets, enabled: onboarded })
+
+  // Форма берёт начальные значения один раз — ждём данные, иначе поля останутся пустыми
+  if (me.isError || targets.isError) {
+    return <p className="p-4 text-hint">Не удалось загрузить анкету. Попробуйте открыть заново.</p>
+  }
+  if (!me.data || (onboarded && !targets.data)) {
+    return <p className="p-4 text-hint">Загрузка…</p>
+  }
+  return <OnboardingForm me={me.data} weightKg={targets.data?.weight_kg} />
+}
+
+function OnboardingForm({ me, weightKg }: { me: Me; weightKg?: string }) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const me = useQuery({ queryKey: ['me'], queryFn: getMe })
-  const targets = useQuery({
-    queryKey: ['targets'],
-    queryFn: getTargets,
-    enabled: Boolean(me.data?.onboarded_at),
-  })
+  const onboarded = Boolean(me.onboarded_at)
 
   // Повторное заполнение — подставляем сохранённые значения
-  const [sex, setSex] = useState<Sex | null>(me.data?.sex ?? null)
-  const [birthDate, setBirthDate] = useState(me.data?.birth_date ?? '')
-  const [height, setHeight] = useState(me.data?.height_cm ?? 170)
-  const [weight, setWeight] = useState(targets.data ? Number(targets.data.weight_kg) : 70)
-  const [goal, setGoal] = useState<Goal | null>(me.data?.goal ?? null)
-  const [activity, setActivity] = useState<Activity | null>(me.data?.activity_level ?? null)
-  const [agreed, setAgreed] = useState(Boolean(me.data?.onboarded_at))
+  const [sex, setSex] = useState<Sex | null>(me.sex)
+  const [birthDate, setBirthDate] = useState(me.birth_date ?? '')
+  const [height, setHeight] = useState(me.height_cm ?? 170)
+  const [weight, setWeight] = useState(weightKg ? Number(weightKg) : 70)
+  const [goal, setGoal] = useState<Goal | null>(me.goal)
+  const [activity, setActivity] = useState<Activity | null>(me.activity_level)
+  const [agreed, setAgreed] = useState(onboarded)
+
+  // Первичная анкета обязательна, а при редактировании можно вернуться без сохранения
+  const back = useCallback(() => navigate('/', { replace: true }), [navigate])
+  useBackButton(onboarded ? back : null)
 
   const valid =
     sex !== null &&

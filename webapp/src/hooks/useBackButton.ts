@@ -2,11 +2,11 @@ import { useEffect } from 'react'
 
 import { webApp } from '../lib/telegram'
 
-/** Нативная кнопка «Назад» в шапке Telegram. Скрывается при уходе со страницы. */
-export function useBackButton(onClick: () => void) {
+/** Нативная кнопка «Назад» в шапке Telegram. Скрывается при уходе со страницы. null — не показывать. */
+export function useBackButton(onClick: (() => void) | null) {
   useEffect(() => {
     const bb = webApp?.BackButton
-    if (!bb) return
+    if (!bb || !onClick) return
     bb.show()
     bb.onClick(onClick)
     return () => {
