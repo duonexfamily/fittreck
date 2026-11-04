@@ -6,7 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
-from app.api.schemas.nutrition import FoodIn, MealItemIn
+from app.api.schemas.nutrition import FoodIn, MealItemIn, MealItemPatch, QuickItemIn
 from app.main import app
 from app.services.meals import ZERO, Nutrients, portion, scale, total
 
@@ -60,6 +60,32 @@ def test_meal_item_in_rejects_bad_grams(grams: str) -> None:
         MealItemIn(food_id=1, grams=Decimal(grams))
 
 
+def test_quick_item_default_name() -> None:
+    item = QuickItemIn(kcal=Decimal(520), protein=Decimal(30), fat=Decimal(20), carbs=Decimal(50))
+    assert item.name == "Быстрая запись"
+    assert item.date is None
+
+
+def test_quick_item_rejects_all_zero() -> None:
+    with pytest.raises(ValidationError):
+        QuickItemIn(kcal=Decimal(0), protein=Decimal(0), fat=Decimal(0), carbs=Decimal(0))
+
+
+def test_quick_item_rejects_blank_name() -> None:
+    with pytest.raises(ValidationError):
+        QuickItemIn(name="  ", kcal=Decimal(100), protein=0, fat=0, carbs=0)
+
+
+def test_meal_item_patch_needs_exactly_one_field() -> None:
+    quick = {"kcal": 100, "protein": 0, "fat": 0, "carbs": 0}
+    assert MealItemPatch.model_validate({"grams": 150}).grams == Decimal(150)
+    assert MealItemPatch.model_validate({"quick": quick}).quick is not None
+    with pytest.raises(ValidationError):
+        MealItemPatch.model_validate({})
+    with pytest.raises(ValidationError):
+        MealItemPatch.model_validate({"grams": 150, "quick": quick})
+
+
 @pytest.mark.parametrize(
     ("method", "path"),
     [
@@ -67,6 +93,10 @@ def test_meal_item_in_rejects_bad_grams(grams: str) -> None:
         ("post", "/api/v1/foods"),
         ("get", "/api/v1/meals"),
         ("post", "/api/v1/meals/lunch/items"),
+        ("post", "/api/v1/meals/lunch/quick-items"),
+        ("get", "/api/v1/foods/favorites"),
+        ("put", "/api/v1/foods/1/favorite"),
+        ("delete", "/api/v1/foods/1/favorite"),
         ("patch", "/api/v1/meal-items/1"),
         ("delete", "/api/v1/meal-items/1"),
     ],

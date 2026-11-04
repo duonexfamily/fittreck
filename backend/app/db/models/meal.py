@@ -38,7 +38,8 @@ class MealItem(TimestampMixin, Base):
         BigInteger, ForeignKey("foods.id", ondelete="SET NULL"), index=True
     )
     name: Mapped[str] = mapped_column(String(128))
-    grams: Mapped[Decimal] = mapped_column(Numeric(6, 1))
+    # None — быстрая запись: КБЖУ введены вручную, без продукта и граммовки
+    grams: Mapped[Decimal | None] = mapped_column(Numeric(6, 1))
     kcal: Mapped[Decimal] = mapped_column(Numeric(7, 2))
     protein: Mapped[Decimal] = mapped_column(Numeric(7, 2))
     fat: Mapped[Decimal] = mapped_column(Numeric(7, 2))

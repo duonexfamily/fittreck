@@ -1,9 +1,10 @@
 from decimal import Decimal
 
-from sqlalchemy import ColumnElement, case, func, or_, select
+from sqlalchemy import ColumnElement, case, delete, func, or_, select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import Food, Meal, MealItem
+from app.db.models import Food, FoodFavorite, Meal, MealItem
 
 
 def _escape_like(value: str) -> str:
@@ -73,3 +74,39 @@ class FoodRepository:
         self.session.add(food)
         await self.session.flush()
         return food
+
+    async def favorites(self, user_id: int, limit: int) -> list[Food]:
+        """Избранное — последние отмеченные сверху."""
+        result = await self.session.execute(
+            select(Food)
+            .join(FoodFavorite, FoodFavorite.food_id == Food.id)
+            .where(FoodFavorite.user_id == user_id, self._visible_to(user_id))
+            .order_by(FoodFavorite.id.desc())
+            .limit(limit)
+        )
+        return list(result.scalars())
+
+    async def favorite_ids(self, user_id: int, food_ids: list[int]) -> set[int]:
+        """Какие из переданных продуктов в избранном у пользователя."""
+        if not food_ids:
+            return set()
+        result = await self.session.execute(
+            select(FoodFavorite.food_id).where(
+                FoodFavorite.user_id == user_id, FoodFavorite.food_id.in_(food_ids)
+            )
+        )
+        return set(result.scalars())
+
+    async def add_favorite(self, user_id: int, food_id: int) -> None:
+        await self.session.execute(
+            insert(FoodFavorite)
+            .values(user_id=user_id, food_id=food_id)
+            .on_conflict_do_nothing(index_elements=[FoodFavorite.user_id, FoodFavorite.food_id])
+        )
+
+    async def remove_favorite(self, user_id: int, food_id: int) -> None:
+        await self.session.execute(
+            delete(FoodFavorite).where(
+                FoodFavorite.user_id == user_id, FoodFavorite.food_id == food_id
+            )
+        )

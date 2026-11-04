@@ -47,7 +47,7 @@ export default function Home() {
         <div className="mt-4">
           <TargetsCard targets={targets.data} />
           <Link to="/onboarding" className="mt-2 inline-block text-sm text-link">
-            Изменить анкету
+            Профиль и цели
           </Link>
         </div>
       )}

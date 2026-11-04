@@ -85,15 +85,22 @@ export interface Food extends Nutrients {
   id: number
   name: string
   own: boolean
+  favorite: boolean
 }
 
-export type FoodIn = Omit<Food, 'id' | 'own'>
+export type FoodIn = Omit<Food, 'id' | 'own' | 'favorite'>
+
+/** Быстрая запись: КБЖУ порции вручную, без продукта. */
+export interface QuickIn extends Nutrients {
+  name: string
+}
 
 export interface MealItem extends Nutrients {
   id: number
   food_id: number | null
   name: string
-  grams: number
+  // null — быстрая запись без граммовки
+  grams: number | null
 }
 
 export interface Meal {
@@ -111,16 +118,29 @@ export interface Diary {
 export const searchFoods = (query: string) =>
   api<Food[]>(`/foods?query=${encodeURIComponent(query)}`)
 
+export const getFavoriteFoods = () => api<Food[]>('/foods/favorites')
+
+export const setFavorite = (id: number, favorite: boolean) =>
+  api<void>(`/foods/${id}/favorite`, { method: favorite ? 'PUT' : 'DELETE' })
+
 export const createFood = (body: FoodIn) =>
   api<Food>('/foods', { method: 'POST', body: JSON.stringify(body) })
 
 export const getDiary = (date: string) => api<Diary>(`/meals?date=${date}`)
 
-export const addMealItem = (meal: MealType, body: { date: string; food_id: number; grams: number }) =>
-  api<MealItem>(`/meals/${meal}/items`, { method: 'POST', body: JSON.stringify(body) })
+export const addMealItem = (
+  meal: MealType,
+  body: { date: string; food_id: number; grams: number },
+) => api<MealItem>(`/meals/${meal}/items`, { method: 'POST', body: JSON.stringify(body) })
+
+export const addQuickItem = (meal: MealType, body: QuickIn & { date: string }) =>
+  api<MealItem>(`/meals/${meal}/quick-items`, { method: 'POST', body: JSON.stringify(body) })
 
 export const updateMealItem = (id: number, grams: number) =>
   api<MealItem>(`/meal-items/${id}`, { method: 'PATCH', body: JSON.stringify({ grams }) })
+
+export const updateQuickItem = (id: number, quick: QuickIn) =>
+  api<MealItem>(`/meal-items/${id}`, { method: 'PATCH', body: JSON.stringify({ quick }) })
 
 export const deleteMealItem = (id: number) => api<void>(`/meal-items/${id}`, { method: 'DELETE' })
 
