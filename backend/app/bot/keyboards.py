@@ -8,6 +8,7 @@ from app.services.reminders import (
     REMINDER_TYPES,
     REMINDERS_BY_KIND,
     SHIFT_STEPS,
+    WEEKDAY_NAMES,
     ReminderSetting,
 )
 from app.services.streaks import days_word
@@ -45,7 +46,7 @@ def reminders_list_keyboard(settings: Mapping[str, ReminderSetting]) -> InlineKe
         rows.append(
             [
                 InlineKeyboardButton(
-                    text=f"{mark} {t.title} · {s.time:%H:%M}",
+                    text=f"{mark} {t.title} · {when(t.kind, s)}",
                     callback_data=ReminderCallback(action="open", kind=t.kind).pack(),
                 )
             ]
@@ -80,11 +81,18 @@ def reminder_keyboard(kind: str, setting: ReminderSetting) -> InlineKeyboardMark
     )
 
 
+def when(kind: str, setting: ReminderSetting) -> str:
+    """«19:00» или «вс 19:00» для еженедельных."""
+    weekday = REMINDERS_BY_KIND[kind].weekday
+    prefix = "" if weekday is None else f"{WEEKDAY_NAMES[weekday]} "
+    return f"{prefix}{setting.time:%H:%M}"
+
+
 def reminder_text(kind: str, setting: ReminderSetting) -> str:
     status = "включено ✅" if setting.on else "выключено"
     return (
         f"<b>{REMINDERS_BY_KIND[kind].title}</b>\n"
-        f"Время: <b>{setting.time:%H:%M}</b>, {status}\n\n"
+        f"Время: <b>{when(kind, setting)}</b>, {status}\n\n"
         "Если данные за день уже внесены, бот не напомнит."
     )
 

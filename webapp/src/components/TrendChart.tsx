@@ -13,6 +13,8 @@ interface Props {
   domain?: [number, number]
   // Горизонтальная линия-ориентир, например норма калорий
   reference?: { value: number; label: string }
+  // Точка — неделя, а не день: подпись «нед. с 3 нояб.»
+  weekly?: boolean
 }
 
 const H = 120
@@ -57,6 +59,7 @@ export default function TrendChart({
   summary,
   domain,
   reference,
+  weekly = false,
 }: Props) {
   const [boxRef, W] = useWidth<HTMLDivElement>()
   const [selected, setSelected] = useState<number | null>(null)
@@ -93,7 +96,7 @@ export default function TrendChart({
 
   const header =
     selected !== null && values[selected] !== null
-      ? `${shortDate(dates[selected])} · ${format(values[selected])}`
+      ? `${weekly ? 'нед. с ' : ''}${shortDate(dates[selected])} · ${format(values[selected])}`
       : summary
   const stroke = 'var(--color-button)'
   // За неделю столбики не должны становиться плитами — ограничиваем ширину

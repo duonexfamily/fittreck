@@ -3,7 +3,16 @@ from datetime import date
 from sqlalchemy import func, select, union
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import BodyMetric, Checkin, Meal, MealItem, WaterLog, Workout, WorkoutSet
+from app.db.models import (
+    BodyMetric,
+    Checkin,
+    Exercise,
+    Meal,
+    MealItem,
+    WaterLog,
+    Workout,
+    WorkoutSet,
+)
 
 
 class StatsRepository:
@@ -83,3 +92,61 @@ class StatsRepository:
             .group_by(Workout.date)
         )
         return {day: (int(count), float(kg)) for day, count, kg in result.all()}
+
+    async def exercise_records(
+        self, user_id: int, limit: int
+    ) -> list[tuple[str, float, int, date]]:
+        """Лучший подход по весу в каждом силовом упражнении: (название, кг, повторы, дата).
+
+        Считаются только выполненные подходы выполненных тренировок. Новые рекорды — первыми.
+        """
+        ranked = (
+            select(
+                Exercise.name,
+                WorkoutSet.weight_kg,
+                WorkoutSet.reps,
+                Workout.date,
+                func.row_number()
+                .over(
+                    partition_by=WorkoutSet.exercise_id,
+                    # При равном весе лучше больше повторов, при равных — первый раз
+                    order_by=(
+                        WorkoutSet.weight_kg.desc(),
+                        WorkoutSet.reps.desc().nulls_last(),
+                        Workout.date,
+                    ),
+                )
+                .label("rank"),
+            )
+            .join(Workout, Workout.id == WorkoutSet.workout_id)
+            .join(Exercise, Exercise.id == WorkoutSet.exercise_id)
+            .where(
+                Workout.user_id == user_id,
+                Workout.status == "done",
+                WorkoutSet.done.is_(True),
+                WorkoutSet.weight_kg > 0,
+                Exercise.kind == "strength",
+            )
+            .subquery()
+        )
+        result = await self.session.execute(
+            select(ranked.c.name, ranked.c.weight_kg, ranked.c.reps, ranked.c.date)
+            .where(ranked.c.rank == 1)
+            .order_by(ranked.c.date.desc(), ranked.c.weight_kg.desc())
+            .limit(limit)
+        )
+        return [(name, float(kg), reps or 0, day) for name, kg, reps, day in result.all()]
+
+    async def count_done_workouts(self, user_id: int) -> int:
+        result = await self.session.execute(
+            select(func.count(Workout.id)).where(
+                Workout.user_id == user_id, Workout.status == "done"
+            )
+        )
+        return int(result.scalar_one())
+
+    async def count_checkins(self, user_id: int) -> int:
+        result = await self.session.execute(
+            select(func.count(Checkin.id)).where(Checkin.user_id == user_id)
+        )
+        return int(result.scalar_one())

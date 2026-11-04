@@ -1,6 +1,6 @@
 """Напоминания: настройки пользователя и выбор, кому и что отправить."""
 
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from typing import Any
@@ -17,6 +17,7 @@ from app.db.repositories.stats import StatsRepository
 from app.db.repositories.workouts import WorkoutRepository
 from app.services import streaks, water
 from app.services.profile import get_targets
+from app.services.stats import DayStats, get_summary
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,6 +30,8 @@ class ReminderType:
     button: str
     # Экран Mini App, который открывает кнопка
     path: str
+    # День недели (0 — понедельник). None — каждый день
+    weekday: int | None = None
 
 
 REMINDER_TYPES: tuple[ReminderType, ...] = (
@@ -65,7 +68,13 @@ REMINDER_TYPES: tuple[ReminderType, ...] = (
         "summary", "🌙 Итог дня", time(21, 0), False,
         "Итог дня 🌙", "📈 Посмотреть прогресс", "/stats",
     ),
+    # По воскресеньям. Текст — из данных недели, см. week_summary_text
+    ReminderType(
+        "week", "📅 Итог недели", time(19, 0), False,
+        "Итоги недели 📅", "📈 Посмотреть прогресс", "/stats", weekday=6,
+    ),
 )  # fmt: skip
+WEEKDAY_NAMES = ("пн", "вт", "ср", "чт", "пт", "сб", "вс")
 REMINDERS_BY_KIND: dict[str, ReminderType] = {t.kind: t for t in REMINDER_TYPES}
 MEAL_KINDS = frozenset({"breakfast", "lunch", "dinner"})
 
@@ -141,6 +150,9 @@ def due_kinds(settings: Mapping[str, ReminderSetting], local_now: datetime) -> I
     for kind, s in settings.items():
         if not s.on:
             continue
+        weekday = REMINDERS_BY_KIND[kind].weekday
+        if weekday is not None and local_now.weekday() != weekday:
+            continue
         at = datetime.combine(local_now.date(), s.time, tzinfo=local_now.tzinfo)
         if at <= local_now < at + LATE_WINDOW:
             yield kind
@@ -178,6 +190,47 @@ def day_summary_text(facts: DayFacts) -> str | None:
     return text
 
 
+def _fmt_minutes(minutes: float) -> str:
+    total = round(minutes)
+    return f"{total // 60} ч {total % 60} мин" if total % 60 else f"{total // 60} ч"
+
+
+def _has_data(d: DayStats) -> bool:
+    scores = (d.sleep_minutes, d.sleep_quality, d.energy, d.mood, d.stress)
+    return (
+        d.kcal is not None
+        or d.weight_kg is not None
+        or d.workouts > 0
+        or any(v is not None for v in scores)
+    )
+
+
+def week_summary_text(days: Sequence[DayStats], streak: int) -> str | None:
+    """Итоги недели. None — за неделю ни одной записи: писать незачем."""
+    active = sum(1 for d in days if _has_data(d))
+    if active == 0 and streak == 0:
+        return None
+
+    lines = [f"📆 Дней с записями: {active} из {len(days)}"]
+    kcal = [d.kcal for d in days if d.kcal is not None]
+    if kcal:
+        lines.append(f"🍽 В среднем {round(sum(kcal) / len(kcal))} ккал в день")
+    sleep = [d.sleep_minutes for d in days if d.sleep_minutes is not None]
+    if sleep:
+        lines.append(f"😴 Сон в среднем {_fmt_minutes(sum(sleep) / len(sleep))}")
+    workouts = sum(d.workouts for d in days)
+    if workouts:
+        lines.append(f"🏋️ Тренировок: {workouts}")
+    weights = [d.weight_kg for d in days if d.weight_kg is not None]
+    if len(weights) >= 2:
+        delta = weights[-1] - weights[0]
+        sign = "+" if delta > 0 else "−" if delta < 0 else "±"
+        lines.append(f"⚖️ Вес: {sign}{abs(delta):.1f} кг".replace(".", ","))
+    if streak > 1:
+        lines.append(f"🔥 Серия: {streak} {streaks.days_word(streak)} подряд")
+    return "Итоги недели 📅\n" + "\n".join(lines)
+
+
 async def _planned_workout_id(session: AsyncSession, user: User, day: date) -> int | None:
     workouts = await WorkoutRepository(session).list_range(user.id, day, day)
     planned = [w for w in workouts if w.status == "planned"]
@@ -211,6 +264,11 @@ async def _compose(
         return None if workout_id is None else (None, f"/workouts/{workout_id}")
     if kind == "summary":
         text = day_summary_text(await _day_facts(session, user, day))
+        return None if text is None else (text, None)
+    if kind == "week":
+        week = await get_summary(session, user, 7)
+        streak = (await streaks.get_streak(session, user)).current
+        text = week_summary_text(week, streak)
         return None if text is None else (text, None)
     return None, None
 
