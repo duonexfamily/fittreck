@@ -28,7 +28,7 @@ function Progress({ value, target }: { value: number; target: number }) {
   return (
     <div className="h-1.5 overflow-hidden rounded-full bg-bg">
       <div
-        className={`h-full rounded-full ${value > target ? 'bg-red-500' : 'bg-button'}`}
+        className={`h-full rounded-full ${value > target ? 'bg-destructive' : 'bg-button'}`}
         style={{ width: `${pct}%` }}
       />
     </div>

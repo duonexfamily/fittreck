@@ -208,7 +208,7 @@ function OnboardingForm({ me, weightKg }: { me: Me; weightKg?: string }) {
       </label>
 
       {save.isError && (
-        <p className="mt-4 text-sm text-red-500">
+        <p className="mt-4 text-sm text-destructive">
           Не удалось сохранить. Проверьте данные и попробуйте ещё раз.
         </p>
       )}

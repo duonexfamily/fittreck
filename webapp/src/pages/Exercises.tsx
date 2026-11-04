@@ -71,7 +71,7 @@ function CreateExercise({
       <ChoiceGroup options={MUSCLE_OPTIONS} value={muscle} onChange={setMuscle} />
       <h3 className="text-sm text-hint">Как записывать подходы</h3>
       <ChoiceGroup options={KIND_OPTIONS} value={kind} onChange={setKind} columns={1} />
-      {create.isError && <p className="text-sm text-red-500">Не получилось сохранить.</p>}
+      {create.isError && <p className="text-sm text-destructive">Не получилось сохранить.</p>}
     </section>
   )
 }

@@ -187,7 +187,7 @@ function CheckinForm({
         placeholder="Заметка: что повлияло на сон и самочувствие"
         className="w-full resize-none rounded-2xl bg-bg-secondary p-4 outline-none"
       />
-      {save.isError && <p className="text-sm text-red-500">Не получилось сохранить.</p>}
+      {save.isError && <p className="text-sm text-destructive">Не получилось сохранить.</p>}
       {saved && <p className="text-sm text-hint">Сохранено ✓</p>}
     </div>
   )

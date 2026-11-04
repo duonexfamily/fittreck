@@ -54,7 +54,7 @@ function GramsEdit({ item, grams0, onDone }: { item: MealItem; grams0: number; o
       <div className="mt-3">
         <NutrientsRow n={preview} />
       </div>
-      {save.isError && <p className="mt-4 text-sm text-red-500">Не получилось сохранить.</p>}
+      {save.isError && <p className="mt-4 text-sm text-destructive">Не получилось сохранить.</p>}
     </>
   )
 }
@@ -89,7 +89,7 @@ function QuickEdit({ item, onDone }: { item: MealItem; onDone: Done }) {
       <h1 className="text-xl font-semibold">Быстрая запись</h1>
       <p className="mt-1 text-sm text-hint">КБЖУ всей порции.</p>
       <QuickFields name={name} onName={setName} raw={raw} onRaw={setRaw} />
-      {save.isError && <p className="mt-4 text-sm text-red-500">Не получилось сохранить.</p>}
+      {save.isError && <p className="mt-4 text-sm text-destructive">Не получилось сохранить.</p>}
     </>
   )
 }
@@ -133,11 +133,11 @@ export default function MealItemEdit() {
         type="button"
         disabled={remove.isPending}
         onClick={() => remove.mutate()}
-        className="mt-6 w-full rounded-2xl bg-bg-secondary p-4 font-medium text-red-500 disabled:opacity-50"
+        className="mt-6 w-full rounded-2xl bg-bg-secondary p-4 font-medium text-destructive disabled:opacity-50"
       >
         Удалить из дневника
       </button>
-      {remove.isError && <p className="mt-4 text-sm text-red-500">Не получилось удалить.</p>}
+      {remove.isError && <p className="mt-4 text-sm text-destructive">Не получилось удалить.</p>}
     </main>
   )
 }
