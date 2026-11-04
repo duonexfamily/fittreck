@@ -18,6 +18,7 @@ MEAL_TYPES: tuple[MealType, ...] = get_args(MealType)
 
 SEARCH_LIMIT = 30
 RECENT_LIMIT = 20
+FAVORITES_LIMIT = 50
 
 _CENT = Decimal("0.01")
 
@@ -95,6 +96,10 @@ class NotFoundError(Exception):
     """Продукт или запись дневника не найдены (или принадлежат другому пользователю)."""
 
 
+class WrongItemKindError(Exception):
+    """Граммовку меняют у продукта, КБЖУ — у быстрой записи. Перепутали."""
+
+
 async def search_foods(session: AsyncSession, user: User, query: str) -> list[Food]:
     """Поиск продуктов. Пустой запрос — недавно использованные."""
     query = query.strip()
@@ -102,6 +107,26 @@ async def search_foods(session: AsyncSession, user: User, query: str) -> list[Fo
     if not query:
         return await repo.recent(user.id, RECENT_LIMIT)
     return await repo.search(user.id, query, SEARCH_LIMIT)
+
+
+async def list_favorites(session: AsyncSession, user: User) -> list[Food]:
+    return await FoodRepository(session).favorites(user.id, FAVORITES_LIMIT)
+
+
+async def favorite_ids(session: AsyncSession, user: User, foods: Iterable[Food]) -> set[int]:
+    return await FoodRepository(session).favorite_ids(user.id, [f.id for f in foods])
+
+
+async def set_favorite(session: AsyncSession, user: User, food_id: int, favorite: bool) -> None:
+    """Отмечает продукт избранным или снимает отметку. Повторный вызов ничего не меняет."""
+    repo = FoodRepository(session)
+    if await repo.get_visible(user.id, food_id) is None:
+        raise NotFoundError
+    if favorite:
+        await repo.add_favorite(user.id, food_id)
+    else:
+        await repo.remove_favorite(user.id, food_id)
+    await session.commit()
 
 
 async def create_food(session: AsyncSession, user: User, name: str, per_100g: Nutrients) -> Food:
@@ -160,6 +185,33 @@ async def add_item(
     return item
 
 
+async def add_quick_item(
+    session: AsyncSession,
+    user: User,
+    day: date | None,
+    meal_type: MealType,
+    name: str,
+    n: Nutrients,
+) -> MealItem:
+    """Быстрая запись: КБЖУ вручную, без продукта из справочника."""
+    repo = MealRepository(session)
+    meal = await repo.get_or_create(user.id, day or user_today(user), meal_type)
+    item = await repo.add_item(
+        MealItem(
+            meal_id=meal.id,
+            food_id=None,
+            name=name.strip(),
+            grams=None,
+            kcal=n.kcal,
+            protein=n.protein,
+            fat=n.fat,
+            carbs=n.carbs,
+        )
+    )
+    await session.commit()
+    return item
+
+
 async def update_item_grams(
     session: AsyncSession, user: User, item_id: int, grams: Decimal
 ) -> MealItem:
@@ -167,8 +219,25 @@ async def update_item_grams(
     item = await MealRepository(session).get_item(user.id, item_id)
     if item is None:
         raise NotFoundError
+    if item.grams is None:
+        raise WrongItemKindError
     n = scale(item, grams / item.grams)
     item.grams = grams
+    item.kcal, item.protein, item.fat, item.carbs = n.kcal, n.protein, n.fat, n.carbs
+    await session.commit()
+    return item
+
+
+async def update_quick_item(
+    session: AsyncSession, user: User, item_id: int, name: str, n: Nutrients
+) -> MealItem:
+    """Меняет название и КБЖУ быстрой записи."""
+    item = await MealRepository(session).get_item(user.id, item_id)
+    if item is None:
+        raise NotFoundError
+    if item.grams is not None:
+        raise WrongItemKindError
+    item.name = name.strip()
     item.kcal, item.protein, item.fat, item.carbs = n.kcal, n.protein, n.fat, n.carbs
     await session.commit()
     return item

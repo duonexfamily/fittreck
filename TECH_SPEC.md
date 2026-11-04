@@ -159,11 +159,14 @@ backend/
 | `GET /me/targets` | Рассчитанная норма ккал и БЖУ |
 | `PUT /me/settings` | Напоминания, время, тихие часы |
 | `DELETE /me` | Удалить все данные пользователя |
-| `GET /foods?query=` | Поиск по справочнику продуктов |
+| `GET /foods?query=` | Поиск по справочнику продуктов; пустой запрос — недавние. У продукта флаг `favorite` |
+| `GET /foods/favorites` | Избранные продукты, последние отмеченные сверху |
+| `PUT/DELETE /foods/{id}/favorite` | Отметить избранным / снять отметку (204, повтор ничего не меняет) |
 | `POST /foods` | Свой продукт |
 | `GET /meals?date=` | Все 4 приёма пищи за день (включая пустые) + итоги; без `date` — сегодня в поясе пользователя |
 | `POST /meals/{meal_type}/items` | Добавить продукт в приём пищи |
-| `PATCH/DELETE /meal-items/{id}` | Изменить граммовку (КБЖУ пересчитывается из снимка) / удалить |
+| `POST /meals/{meal_type}/quick-items` | Быстрая запись: `{date?, name?, kcal, protein, fat, carbs}` порции без продукта |
+| `PATCH/DELETE /meal-items/{id}` | `PATCH {grams}` — граммовка продукта (КБЖУ из снимка), `PATCH {quick}` — КБЖУ быстрой записи; не тот вид — 409. `DELETE` — удалить |
 | `GET /water?date=`, `POST /water` | Вода за день и ориентир (30 мл/кг, 1,5–3,5 л). `POST {date?, delta_ml}`: прибавить, отрицательное — отмена, ниже 0 не опускается |
 | `GET /weight?days=90`, `PUT /weight`, `DELETE /weight/{date}` | Журнал веса. `PUT {date?, weight_kg}` — одна запись в день, перезапись; дата в будущем — 422. Единственную запись удалить нельзя — 409 (по ней считается норма) |
 | `GET /exercises?query=&muscle=` | Каталог упражнений |
@@ -189,7 +192,8 @@ backend/
 | `user_settings` | `user_id` (unique), `reminders` (jsonb: `{"lunch": {"on": true, "time": "13:30"}}`; нет ключа — по умолчанию). Строка создаётся при первом изменении |
 | `foods` | `name`, `kcal`, `protein`, `fat`, `carbs` (на 100 г), `owner_id` (null = системный) |
 | `meals` | `user_id`, `date`, `meal_type` (breakfast/lunch/dinner/snack) |
-| `meal_items` | `meal_id`, `food_id` (nullable), `name`, `grams`, `kcal`, `protein`, `fat`, `carbs` (снимок значений) |
+| `meal_items` | `meal_id`, `food_id` (nullable), `name`, `grams` (null — быстрая запись), `kcal`, `protein`, `fat`, `carbs` (снимок значений) |
+| `food_favorites` | `user_id`, `food_id`, уникально `(user_id, food_id)` |
 | `water_logs` | `user_id`, `date`, `ml` — сумма за день, уникально `(user_id, date)` |
 | `body_metrics` | `user_id`, `date`, `weight_kg`, `waist_cm`… |
 | `exercises` | `name`, `muscle_group`, `kind` (strength/cardio/stretch), `owner_id` |
@@ -241,10 +245,10 @@ Telegram API — официальный скрипт `telegram-web-app.js`, до
 | Путь | Экран |
 |---|---|
 | `/` | Главная: сводка дня (ккал, вода, сон, тренировка), быстрые действия |
-| `/onboarding` | Анкета и дисклеймер при первом входе |
+| `/onboarding` | Анкета и дисклеймер при первом входе; позже — «Профиль и цели» с пересчётом нормы |
 | `/nutrition` | Дневник питания по приёмам, вода, прогресс ккал и БЖУ |
-| `/nutrition/add` | Поиск продукта (пустой запрос — недавние), свой продукт, слайдер граммовки |
-| `/nutrition/item/:id` | Изменить граммовку или удалить запись дневника |
+| `/nutrition/add` | Поиск продукта (пустой запрос — избранное и недавние), свой продукт, быстрая запись КБЖУ, слайдер граммовки, ⭐ избранное |
+| `/nutrition/item/:id` | Изменить граммовку (или КБЖУ быстрой записи), удалить запись дневника |
 | `/weight` | Ввод веса, график |
 | `/workouts` | Календарь тренировок |
 | `/workouts/:id` | Трекинг тренировки: упражнения, подходы, RPE |

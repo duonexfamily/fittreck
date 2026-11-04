@@ -118,7 +118,9 @@ function MealCard({
               >
                 <span className="min-w-0">
                   <span className="block truncate">{item.name}</span>
-                  <span className="text-xs text-hint">{fmtGrams(item.grams)} г</span>
+                  <span className="text-xs text-hint">
+                    {item.grams === null ? 'быстрая запись' : `${fmtGrams(item.grams)} г`}
+                  </span>
                 </span>
                 <span className="shrink-0 text-sm">{fmtKcal(item.kcal)} ккал</span>
               </button>

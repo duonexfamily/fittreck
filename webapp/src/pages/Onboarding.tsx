@@ -125,13 +125,22 @@ function OnboardingForm({ me, weightKg }: { me: Me; weightKg?: string }) {
     })
   }, [valid, save, sex, birthDate, height, weight, goal, activity])
 
-  useMainButton({ text: 'Рассчитать норму', onClick: submit, enabled: valid, loading: save.isPending })
+  useMainButton({
+    text: onboarded ? 'Сохранить и пересчитать' : 'Рассчитать норму',
+    onClick: submit,
+    enabled: valid,
+    loading: save.isPending,
+  })
 
   return (
     <main className="p-4 pb-10">
-      <h1 className="text-xl font-semibold">Расскажите о себе</h1>
+      <h1 className="text-xl font-semibold">
+        {onboarded ? 'Профиль и цели' : 'Расскажите о себе'}
+      </h1>
       <p className="mt-1 text-sm text-hint">
-        По этим данным рассчитаем вашу норму калорий, белков, жиров и углеводов.
+        {onboarded
+          ? 'Измените цель, активность или параметры — норма КБЖУ и воды пересчитается.'
+          : 'По этим данным рассчитаем вашу норму калорий, белков, жиров и углеводов.'}
       </p>
 
       <Section title="Пол">
@@ -199,7 +208,9 @@ function OnboardingForm({ me, weightKg }: { me: Me; weightKg?: string }) {
       </label>
 
       {save.isError && (
-        <p className="mt-4 text-sm text-red-500">Не удалось сохранить. Проверьте данные и попробуйте ещё раз.</p>
+        <p className="mt-4 text-sm text-red-500">
+          Не удалось сохранить. Проверьте данные и попробуйте ещё раз.
+        </p>
       )}
     </main>
   )
