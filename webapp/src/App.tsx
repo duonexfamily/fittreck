@@ -8,6 +8,7 @@ import Onboarding from './pages/Onboarding'
 const Nutrition = lazy(() => import('./pages/Nutrition'))
 const NutritionAdd = lazy(() => import('./pages/NutritionAdd'))
 const MealItemEdit = lazy(() => import('./pages/MealItemEdit'))
+const Weight = lazy(() => import('./pages/Weight'))
 
 export default function App() {
   return (
@@ -18,6 +19,7 @@ export default function App() {
         <Route path="/nutrition" element={<Nutrition />} />
         <Route path="/nutrition/add" element={<NutritionAdd />} />
         <Route path="/nutrition/item/:id" element={<MealItemEdit />} />
+        <Route path="/weight" element={<Weight />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Suspense>

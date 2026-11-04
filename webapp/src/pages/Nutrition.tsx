@@ -10,6 +10,7 @@ import {
   getMe,
   getTargets,
 } from '../api/client'
+import WaterCard from '../components/WaterCard'
 import { useBackButton } from '../hooks/useBackButton'
 import {
   MEAL_LABELS,
@@ -195,6 +196,7 @@ export default function Nutrition() {
       {diary.data && (
         <div className="mt-3 grid gap-3">
           <DaySummary total={diary.data.total} target={target} />
+          <WaterCard date={date} />
           {diary.data.meals.map((meal) => (
             <MealCard
               key={meal.meal_type}

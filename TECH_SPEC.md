@@ -163,8 +163,8 @@ backend/
 | `GET /meals?date=` | Все 4 приёма пищи за день (включая пустые) + итоги; без `date` — сегодня в поясе пользователя |
 | `POST /meals/{meal_type}/items` | Добавить продукт в приём пищи |
 | `PATCH/DELETE /meal-items/{id}` | Изменить граммовку (КБЖУ пересчитывается из снимка) / удалить |
-| `GET /water?date=`, `POST /water` | Вода |
-| `GET /weight?from=&to=`, `POST /weight` | Вес |
+| `GET /water?date=`, `POST /water` | Вода за день и ориентир (30 мл/кг, 1,5–3,5 л). `POST {date?, delta_ml}`: прибавить, отрицательное — отмена, ниже 0 не опускается |
+| `GET /weight?days=90`, `PUT /weight`, `DELETE /weight/{date}` | Журнал веса. `PUT {date?, weight_kg}` — одна запись в день, перезапись; дата в будущем — 422. Единственную запись удалить нельзя — 409 (по ней считается норма) |
 | `GET /exercises?query=&muscle=` | Каталог упражнений |
 | `POST /exercises` | Своё упражнение |
 | `GET /workouts?from=&to=` | Тренировки за период (для календаря) |
@@ -189,7 +189,7 @@ backend/
 | `foods` | `name`, `kcal`, `protein`, `fat`, `carbs` (на 100 г), `owner_id` (null = системный) |
 | `meals` | `user_id`, `date`, `meal_type` (breakfast/lunch/dinner/snack) |
 | `meal_items` | `meal_id`, `food_id` (nullable), `name`, `grams`, `kcal`, `protein`, `fat`, `carbs` (снимок значений) |
-| `water_logs` | `user_id`, `amount_ml`, `logged_at` |
+| `water_logs` | `user_id`, `date`, `ml` — сумма за день, уникально `(user_id, date)` |
 | `body_metrics` | `user_id`, `date`, `weight_kg`, `waist_cm`… |
 | `exercises` | `name`, `muscle_group`, `kind` (strength/cardio/stretch), `owner_id` |
 | `workouts` | `user_id`, `date`, `status` (planned/done), `started_at`, `finished_at`, `rpe`, `note` |
