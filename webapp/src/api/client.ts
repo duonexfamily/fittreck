@@ -195,6 +195,8 @@ export interface WorkoutSet extends SetValues {
   id: number
   exercise_id: number
   set_no: number
+  // false — подход из шаблона, ещё не выполнен
+  done: boolean
 }
 
 export interface Workout {
@@ -209,6 +211,7 @@ export interface Workout {
   volume_kg: number
 }
 
+/** set_count и volume_kg — только по выполненным подходам. */
 export interface WorkoutSummary {
   id: number
   date: string
@@ -252,8 +255,27 @@ export const deleteWorkout = (id: number) => api<void>(`/workouts/${id}`, { meth
 export const addSet = (workoutId: number, body: SetValues & { exercise_id: number }) =>
   api<WorkoutSet>(`/workouts/${workoutId}/sets`, { method: 'POST', body: JSON.stringify(body) })
 
-/** Значения подхода заменяются целиком. */
-export const updateSet = (id: number, body: SetValues) =>
+/** Значения подхода заменяются целиком. Сохранённый подход — выполнен, если не указано иное. */
+export const updateSet = (id: number, body: SetValues & { done?: boolean }) =>
   api<WorkoutSet>(`/workout-sets/${id}`, { method: 'PATCH', body: JSON.stringify(body) })
 
 export const deleteSet = (id: number) => api<void>(`/workout-sets/${id}`, { method: 'DELETE' })
+
+export interface Template {
+  id: number
+  name: string
+  exercise_names: string[]
+  set_count: number
+}
+
+export const getTemplates = () => api<Template[]>('/templates')
+
+/** Шаблон из тренировки: её упражнения и подходы. */
+export const createTemplate = (body: { name: string; workout_id: number }) =>
+  api<Template>('/templates', { method: 'POST', body: JSON.stringify(body) })
+
+export const deleteTemplate = (id: number) => api<void>(`/templates/${id}`, { method: 'DELETE' })
+
+/** Тренировка по шаблону на дату: подходы скопированы невыполненными. */
+export const startTemplate = (id: number, date: string) =>
+  api<Workout>(`/templates/${id}/start`, { method: 'POST', body: JSON.stringify({ date }) })

@@ -8,6 +8,7 @@ import {
   type Workout as WorkoutData,
   type WorkoutSet,
   addSet,
+  createTemplate,
   deleteSet,
   deleteWorkout,
   getMe,
@@ -143,6 +144,12 @@ function ExerciseCard({
     onSuccess: onDone,
     onError: () => haptic.error(),
   })
+  // Подход из шаблона выполнен как запланировано — отметка одним касанием
+  const check = useMutation({
+    mutationFn: (s: WorkoutSet) => updateSet(s.id, { ...pickValues(s), done: true }),
+    onSuccess: onDone,
+    onError: () => haptic.error(),
+  })
 
   const open = (target: 'new' | number) => {
     haptic.select()
@@ -177,19 +184,32 @@ function ExerciseCard({
               {editing === s.id ? (
                 form(setToRaw(exercise.kind, s), 'Сохранить', () => remove.mutate(s.id))
               ) : (
-                <button
-                  type="button"
-                  onClick={() => open(s.id)}
-                  className="flex w-full items-baseline gap-3 text-left"
-                >
-                  <span className="w-5 shrink-0 text-sm text-hint">{s.set_no}</span>
-                  <span>{fmtSet(s)}</span>
-                </button>
+                <div className="flex items-center gap-3">
+                  {s.done ? (
+                    <span className="w-6 shrink-0 text-center text-sm text-hint">{s.set_no}</span>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={check.isPending}
+                      onClick={() => check.mutate(s)}
+                      className="size-6 shrink-0 rounded-full border-2 border-link disabled:opacity-50"
+                      aria-label={`Отметить подход ${s.set_no} выполненным`}
+                    />
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => open(s.id)}
+                    className={`flex-1 text-left ${s.done ? '' : 'text-hint'}`}
+                  >
+                    {fmtSet(s)}
+                  </button>
+                </div>
               )}
             </li>
           ))}
         </ul>
       )}
+      {check.isError && <p className="mt-1 text-sm text-red-500">Не получилось отметить.</p>}
       {editing === 'new' ? (
         // Следующий подход начинается с прошлых значений — обычно меняется одна цифра
         form(last ? setToRaw(exercise.kind, last) : EMPTY_SET_RAW, 'Добавить подход')
@@ -202,6 +222,75 @@ function ExerciseCard({
           + Подход
         </button>
       )}
+    </section>
+  )
+}
+
+const pickValues = ({ reps, weight_kg, duration_s, distance_m }: SetValues): SetValues => ({
+  reps,
+  weight_kg,
+  duration_s,
+  distance_m,
+})
+
+/** Сохранить тренировку как шаблон: упражнения и подходы с их значениями. */
+function SaveTemplate({ workoutId }: { workoutId: number }) {
+  const queryClient = useQueryClient()
+  const [name, setName] = useState<string | null>(null)
+  const save = useMutation({
+    mutationFn: (n: string) => createTemplate({ name: n, workout_id: workoutId }),
+    onSuccess: async () => {
+      haptic.success()
+      setName(null)
+      await queryClient.invalidateQueries({ queryKey: ['templates'] })
+    },
+    onError: () => haptic.error(),
+  })
+
+  if (name === null) {
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          haptic.select()
+          save.reset()
+          setName('')
+        }}
+        className="rounded-2xl bg-bg-secondary p-4 text-center font-medium text-link"
+      >
+        {save.isSuccess ? 'Шаблон сохранён ✓' : 'Сохранить как шаблон'}
+      </button>
+    )
+  }
+  const trimmed = name.trim()
+  return (
+    <section className="rounded-2xl bg-bg-secondary p-4">
+      <h2 className="font-medium">Новый шаблон</h2>
+      <input
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        maxLength={64}
+        placeholder="Название, например «Ноги»"
+        className="mt-2 w-full rounded-xl bg-bg p-3 outline-none"
+      />
+      {save.isError && <p className="mt-2 text-sm text-red-500">Не получилось сохранить.</p>}
+      <div className="mt-2 flex gap-2">
+        <button
+          type="button"
+          disabled={!trimmed || save.isPending}
+          onClick={() => save.mutate(trimmed)}
+          className="flex-1 rounded-xl bg-button p-3 font-medium text-button-text disabled:opacity-50"
+        >
+          Сохранить
+        </button>
+        <button
+          type="button"
+          onClick={() => setName(null)}
+          className="rounded-xl bg-bg p-3 text-hint"
+        >
+          Отмена
+        </button>
+      </div>
     </section>
   )
 }
@@ -277,7 +366,12 @@ export default function Workout() {
     enabled: Number.isInteger(id) && id > 0,
   })
 
-  const toList = useCallback(() => navigate('/workouts', { replace: true }), [navigate])
+  // Назад — в календарь на день тренировки
+  const day = workout.data?.date
+  const toList = useCallback(
+    () => navigate(day ? `/workouts?day=${day}` : '/workouts', { replace: true }),
+    [navigate, day],
+  )
   useBackButton(toList)
 
   const remove = useMutation({
@@ -312,6 +406,9 @@ export default function Workout() {
     blocks.push({ exercise: picked, sets: [] })
   }
   const hasSets = w.exercises.length > 0
+  const hasDone = w.exercises.some((b) => b.sets.some((s) => s.done))
+  const hasPlannedSets = w.exercises.some((b) => b.sets.some((s) => !s.done))
+  const statusLabel = w.status === 'done' ? 'Выполнена' : w.date > today ? 'Запланирована' : 'Идёт'
 
   const onSaved = async () => {
     haptic.success()
@@ -326,11 +423,16 @@ export default function Workout() {
       <div className="flex items-baseline justify-between gap-3">
         <h1 className="text-xl font-semibold">{formatDay(w.date, today)}</h1>
         <span className={`text-sm ${w.status === 'done' ? 'text-hint' : 'text-link'}`}>
-          {w.status === 'done' ? 'Выполнена' : 'Идёт'}
+          {statusLabel}
         </span>
       </div>
       {w.volume_kg > 0 && (
         <p className="mt-1 text-sm text-hint">Объём: {fmtNumber(w.volume_kg, 0)} кг</p>
+      )}
+      {hasPlannedSets && (
+        <p className="mt-1 text-sm text-hint">
+          Отмечайте подходы кружком по ходу тренировки. Неотмеченные не входят в объём.
+        </p>
       )}
 
       <div className="mt-4 grid gap-3">
@@ -349,6 +451,7 @@ export default function Workout() {
         >
           + Упражнение
         </Link>
+        {hasSets && <SaveTemplate workoutId={w.id} />}
 
         {outcomeOpen ? (
           <Outcome workout={w} onSaved={onSaved} />
@@ -370,7 +473,7 @@ export default function Workout() {
       </div>
 
       {w.status === 'planned' && !outcomeOpen && (
-        <MainAction text="Завершить тренировку" onClick={openOutcome} enabled={hasSets} />
+        <MainAction text="Завершить тренировку" onClick={openOutcome} enabled={hasDone} />
       )}
 
       <button

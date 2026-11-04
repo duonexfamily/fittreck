@@ -3,6 +3,7 @@ from decimal import Decimal
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     Date,
     DateTime,
     ForeignKey,
@@ -78,6 +79,44 @@ class WorkoutSet(TimestampMixin, Base):
     weight_kg: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
     duration_s: Mapped[int | None] = mapped_column(Integer)
     distance_m: Mapped[int | None] = mapped_column(Integer)
+    # False — подход из шаблона, ещё не выполнен. В объём не входит
+    done: Mapped[bool] = mapped_column(Boolean, server_default="true")
 
     workout: Mapped[Workout] = relationship(back_populates="sets")
+    exercise: Mapped[Exercise] = relationship()
+
+
+class WorkoutTemplate(TimestampMixin, Base):
+    """Шаблон тренировки: упражнения и подходы, чтобы повторить программу в один клик."""
+
+    __tablename__ = "workout_templates"
+
+    user_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    name: Mapped[str] = mapped_column(String(64))
+
+    sets: Mapped[list["TemplateSet"]] = relationship(
+        back_populates="template", order_by="TemplateSet.position", cascade="all, delete-orphan"
+    )
+
+
+class TemplateSet(TimestampMixin, Base):
+    """Подход шаблона. position — порядок внутри шаблона: упражнения идут блоками."""
+
+    __tablename__ = "template_sets"
+
+    template_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("workout_templates.id", ondelete="CASCADE"), index=True
+    )
+    exercise_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("exercises.id", ondelete="CASCADE"), index=True
+    )
+    position: Mapped[int] = mapped_column(SmallInteger)
+    reps: Mapped[int | None] = mapped_column(Integer)
+    weight_kg: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
+    duration_s: Mapped[int | None] = mapped_column(Integer)
+    distance_m: Mapped[int | None] = mapped_column(Integer)
+
+    template: Mapped[WorkoutTemplate] = relationship(back_populates="sets")
     exercise: Mapped[Exercise] = relationship()

@@ -47,7 +47,7 @@ class WorkoutRepository:
             select(WorkoutSet)
             .join(Workout, Workout.id == WorkoutSet.workout_id)
             .where(WorkoutSet.id == set_id, Workout.user_id == user_id)
-            .options(selectinload(WorkoutSet.exercise))
+            .options(selectinload(WorkoutSet.exercise), selectinload(WorkoutSet.workout))
         )
         return result.scalar_one_or_none()
 

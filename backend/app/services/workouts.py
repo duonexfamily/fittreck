@@ -105,6 +105,11 @@ def volume(sets: Iterable[WorkoutSet | SetValues]) -> Decimal:
     return sum((set_volume(s) for s in sets), Decimal(0))
 
 
+def done_sets(sets: Iterable[WorkoutSet]) -> list[WorkoutSet]:
+    """Выполненные подходы. Невыполненные из шаблона не входят в объём и счётчики."""
+    return [s for s in sets if s.done]
+
+
 def group_sets(sets: Iterable[WorkoutSet]) -> list[ExerciseBlock]:
     """Подходы по упражнениям. Упражнения — в порядке первого подхода, подходы — по номеру."""
     blocks: dict[int, ExerciseBlock] = {}
@@ -119,8 +124,16 @@ def group_sets(sets: Iterable[WorkoutSet]) -> list[ExerciseBlock]:
 
 def _detail(workout: Workout) -> WorkoutDetail:
     return WorkoutDetail(
-        workout=workout, exercises=group_sets(workout.sets), volume_kg=volume(workout.sets)
+        workout=workout,
+        exercises=group_sets(workout.sets),
+        volume_kg=volume(done_sets(workout.sets)),
     )
+
+
+def _mark_started(user: User, workout: Workout) -> None:
+    """Запланированная тренировка начинается с первого выполненного подхода в её день."""
+    if workout.started_at is None and workout.date == user_today(user):
+        workout.started_at = datetime.now(UTC)
 
 
 async def search_exercises(
@@ -156,12 +169,13 @@ async def list_workouts(
     result = []
     for w in workouts:
         blocks = group_sets(w.sets)
+        done = done_sets(w.sets)
         result.append(
             WorkoutSummary(
                 workout=w,
                 exercise_names=[b.exercise.name for b in blocks],
-                set_count=len(w.sets),
-                volume_kg=volume(w.sets),
+                set_count=len(done),
+                volume_kg=volume(done),
             )
         )
     return result
@@ -243,20 +257,24 @@ async def add_set(
             exercise=exercise,
         )
     )
+    _mark_started(user, workout)
     await session.commit()
     return item
 
 
 async def update_set(
-    session: AsyncSession, user: User, set_id: int, values: SetValues
+    session: AsyncSession, user: User, set_id: int, values: SetValues, done: bool = True
 ) -> WorkoutSet:
-    """Заменяет значения подхода целиком."""
+    """Заменяет значения подхода целиком. Сохранённый подход по умолчанию отмечается выполненным."""
     item = await WorkoutRepository(session).get_set(user.id, set_id)
     if item is None:
         raise NotFoundError
     check_set(item.exercise.kind, values)
     item.reps, item.weight_kg = values.reps, values.weight_kg
     item.duration_s, item.distance_m = values.duration_s, values.distance_m
+    item.done = done
+    if done:
+        _mark_started(user, item.workout)
     await session.commit()
     return item
 

@@ -175,8 +175,10 @@ backend/
 | `POST /workouts` | Новая тренировка `{date?}`, статус `planned`; начатая сегодня получает `started_at` |
 | `GET/PATCH/DELETE /workouts/{id}` | Тренировка с подходами по упражнениям и объёмом. `PATCH {status?, rpe?, note?}` — только переданные поля, `null` очищает; `done` ставит `finished_at`, возврат в `planned` сбрасывает |
 | `POST /workouts/{id}/sets` | Подход `{exercise_id, reps?, weight_kg?, duration_s?, distance_m?}` в конец упражнения. Поля по виду: strength — `reps` (+`weight_kg`), cardio — `duration_s` и/или `distance_m`, stretch — `duration_s`; иначе 422 |
-| `PATCH/DELETE /workout-sets/{id}` | `PATCH` заменяет значения подхода целиком (те же правила). `DELETE` — подходы упражнения перенумеровываются без пропусков |
-| `GET/POST /templates`, `POST /templates/{id}/start` | Шаблоны тренировок |
+| `PATCH/DELETE /workout-sets/{id}` | `PATCH {…значения, done=true}` заменяет значения подхода целиком (те же правила) и отмечает выполненным. `DELETE` — подходы упражнения перенумеровываются без пропусков |
+| `GET /templates`, `DELETE /templates/{id}` | Шаблоны пользователя по алфавиту: упражнения, число подходов |
+| `POST /templates` | Шаблон из тренировки `{name, workout_id}`: все подходы со значениями. Нет подходов — 422, больше 50 шаблонов — 409 |
+| `POST /templates/{id}/start` | Тренировка по шаблону `{date?}`: подходы копируются с `done=false` |
 | `GET /checkins?from=&to=`, `PUT /checkins/{date}` | Чек-ин: сон, энергия, стресс, настроение |
 | `GET /stats/summary?period=` | Данные для графиков: вес, ккал, сон, энергия, объём тренировок |
 | `GET /stats/streaks` | Серии и достижения |
@@ -201,8 +203,9 @@ backend/
 | `body_metrics` | `user_id`, `date`, `weight_kg`, `waist_cm`… |
 | `exercises` | `name`, `muscle_group` (chest/back/shoulders/arms/legs/core/full_body), `kind` (strength/cardio/stretch), `owner_id` (null = системное) |
 | `workouts` | `user_id`, `date`, `status` (planned — не завершена, done), `started_at`, `finished_at`, `rpe` (1–10), `note`; индекс `(user_id, date)` |
-| `workout_sets` | `workout_id`, `exercise_id`, `set_no` (с 1 внутри упражнения), `reps`, `weight_kg`, `duration_s`, `distance_m` |
-| `workout_templates`, `template_exercises` | шаблоны программ |
+| `workout_sets` | `workout_id`, `exercise_id`, `set_no` (с 1 внутри упражнения), `reps`, `weight_kg`, `duration_s`, `distance_m`, `done` (false — подход из шаблона не выполнен, в объём и счётчики не входит) |
+| `workout_templates` | `user_id`, `name` |
+| `template_sets` | `template_id`, `exercise_id`, `position` (порядок в шаблоне), `reps`, `weight_kg`, `duration_s`, `distance_m` |
 | `checkins` | `user_id`, `date` (unique вместе), `bed_time`, `wake_time`, `sleep_quality`, `energy`, `stress`, `mood`, `note` |
 | `reminder_log` | `user_id`, `type`, `sent_on` (местная дата), unique — напоминание за день обработано (отправлено или не нужно) |
 
@@ -253,8 +256,8 @@ Telegram API — официальный скрипт `telegram-web-app.js`, до
 | `/nutrition/add` | Поиск продукта (пустой запрос — избранное и недавние), свой продукт, быстрая запись КБЖУ, слайдер граммовки, ⭐ избранное |
 | `/nutrition/item/:id` | Изменить граммовку (или КБЖУ быстрой записи), удалить запись дневника |
 | `/weight` | Ввод веса, график |
-| `/workouts` | Тренировки за 90 дней, «Начать тренировку»; позже — календарь |
-| `/workouts/:id` | Трекинг тренировки: упражнения, подходы, завершение с RPE и заметкой, удаление |
+| `/workouts` | Календарь месяца (выполнено / в плане), тренировки выбранного дня (`?day=`), шаблоны; «Начать» или «Запланировать» на выбранный день |
+| `/workouts/:id` | Трекинг тренировки: упражнения, подходы (отметка подходов шаблона), завершение с RPE и заметкой, «Сохранить как шаблон», удаление |
 | `/exercises` | Каталог упражнений, фильтры, своё упражнение; `?pick=<id тренировки>` — выбор для тренировки |
 | `/checkin` | Чек-ин: сон, энергия, стресс, настроение слайдерами |
 | `/stats` | Графики прогресса |

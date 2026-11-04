@@ -10,14 +10,19 @@ from app.api.schemas.workouts import (
     ExerciseOut,
     SetIn,
     SetOut,
+    SetPatch,
     SetValuesIn,
+    TemplateIn,
+    TemplateOut,
+    TemplateStartIn,
     WorkoutIn,
     WorkoutOut,
     WorkoutPatch,
     WorkoutSummaryOut,
 )
 from app.db.models import Exercise, WorkoutSet
-from app.services import workouts
+from app.services import templates, workouts
+from app.services.templates import EmptyWorkoutError, TemplateSummary, TooManyTemplatesError
 from app.services.workouts import (
     ExerciseKind,
     MuscleGroup,
@@ -179,10 +184,10 @@ async def post_set(
 
 @router.patch("/workout-sets/{set_id}", response_model=SetOut)
 async def patch_set(
-    set_id: int, body: SetValuesIn, user: CurrentUser, session: SessionDep
+    set_id: int, body: SetPatch, user: CurrentUser, session: SessionDep
 ) -> WorkoutSet:
     try:
-        return await workouts.update_set(session, user, set_id, _values(body))
+        return await workouts.update_set(session, user, set_id, _values(body), body.done)
     except NotFoundError as exc:
         raise _not_found("Подход не найден") from exc
     except WrongSetError as exc:
@@ -196,3 +201,60 @@ async def delete_set(set_id: int, user: CurrentUser, session: SessionDep) -> Res
     except NotFoundError as exc:
         raise _not_found("Подход не найден") from exc
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+def _template_out(t: TemplateSummary) -> TemplateOut:
+    return TemplateOut(
+        id=t.template.id,
+        name=t.template.name,
+        exercise_names=t.exercise_names,
+        set_count=t.set_count,
+    )
+
+
+@router.get("/templates", response_model=list[TemplateOut])
+async def get_templates(user: CurrentUser, session: SessionDep) -> list[TemplateOut]:
+    return [_template_out(t) for t in await templates.list_templates(session, user)]
+
+
+@router.post("/templates", response_model=TemplateOut, status_code=status.HTTP_201_CREATED)
+async def post_template(body: TemplateIn, user: CurrentUser, session: SessionDep) -> TemplateOut:
+    try:
+        return _template_out(
+            await templates.create_template(session, user, body.name, body.workout_id)
+        )
+    except NotFoundError as exc:
+        raise _not_found("Тренировка не найдена") from exc
+    except EmptyWorkoutError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="В тренировке нет подходов",
+        ) from exc
+    except TooManyTemplatesError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Не больше {templates.MAX_TEMPLATES} шаблонов",
+        ) from exc
+
+
+@router.delete("/templates/{template_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_template(template_id: int, user: CurrentUser, session: SessionDep) -> Response:
+    try:
+        await templates.delete_template(session, user, template_id)
+    except NotFoundError as exc:
+        raise _not_found("Шаблон не найден") from exc
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post(
+    "/templates/{template_id}/start",
+    response_model=WorkoutOut,
+    status_code=status.HTTP_201_CREATED,
+)
+async def start_template(
+    template_id: int, body: TemplateStartIn, user: CurrentUser, session: SessionDep
+) -> WorkoutOut:
+    try:
+        return _workout_out(await templates.start_template(session, user, template_id, body.date))
+    except NotFoundError as exc:
+        raise _not_found("Шаблон не найден") from exc
