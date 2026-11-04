@@ -1,5 +1,7 @@
+from html import escape
+
 from aiogram import Router
-from aiogram.filters import CommandStart
+from aiogram.filters import Command, CommandStart
 from aiogram.types import Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,6 +16,23 @@ DISCLAIMER = (
     "ℹ️ Приложение носит информационный характер и не заменяет консультацию "
     "врача, диетолога или тренера."
 )
+
+HELP_TEXT = (
+    "Всё главное — в приложении: анкета и норма калорий, дневник питания.\n"
+    "Скоро появятся тренировки, сон и напоминания.\n\n"
+    "Команды:\n"
+    "/start — начать и открыть приложение\n"
+    "/help — эта подсказка"
+)
+
+
+async def answer_with_app(message: Message, text: str) -> None:
+    """Ответ с кнопкой Mini App. Без HTTPS-адреса кнопку не показываем."""
+    settings = get_settings()
+    if settings.webapp_is_https:
+        await message.answer(text, reply_markup=open_app_keyboard(settings.webapp_url))
+    else:
+        await message.answer(f"{text}\n\n⚙️ Mini App ещё не подключён: нужен HTTPS-адрес.")
 
 
 @router.message(CommandStart())
@@ -33,15 +52,16 @@ async def cmd_start(message: Message, session: AsyncSession) -> None:
         ),
     )
 
+    # Режим разметки HTML: имя с «<» или «&» без экранирования ломает сообщение
     text = (
-        f"Привет, {tg.first_name}! 👋\n\n"
+        f"Привет, {escape(tg.first_name)}! 👋\n\n"
         "Я помогу следить за тренировками, питанием, сном и самочувствием. "
         "Буду напоминать о важном, а всё удобно заполнять в приложении.\n\n"
         f"{DISCLAIMER}"
     )
+    await answer_with_app(message, text)
 
-    settings = get_settings()
-    if settings.webapp_is_https:
-        await message.answer(text, reply_markup=open_app_keyboard(settings.webapp_url))
-    else:
-        await message.answer(f"{text}\n\n⚙️ Mini App ещё не подключён: нужен HTTPS-адрес.")
+
+@router.message(Command("help"))
+async def cmd_help(message: Message) -> None:
+    await answer_with_app(message, HELP_TEXT)

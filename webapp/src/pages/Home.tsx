@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link, Navigate } from 'react-router'
 
-import { getMe, getTargets } from '../api/client'
+import { ApiError, getMe, getTargets } from '../api/client'
 import TargetsCard from '../components/TargetsCard'
 import { isInTelegram } from '../lib/telegram'
 
@@ -33,7 +33,14 @@ export default function Home() {
       <h1 className="text-xl font-semibold">
         {me.data ? `Привет, ${me.data.first_name}!` : 'FitTrack'}
       </h1>
-      {me.isError && <p className="mt-2 text-hint">Не удалось загрузить профиль.</p>}
+      {me.isError && (
+        <p className="mt-2 text-hint">
+          {/* initData действует 24 часа — после этого нужен новый запуск из бота */}
+          {me.error instanceof ApiError && me.error.status === 401
+            ? 'Сессия устарела. Закройте приложение и откройте его снова из бота.'
+            : 'Не удалось загрузить профиль. Проверьте интернет и попробуйте ещё раз.'}
+        </p>
+      )}
 
       {targets.data && (
         <div className="mt-4">
