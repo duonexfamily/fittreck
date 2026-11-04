@@ -9,6 +9,9 @@ const Nutrition = lazy(() => import('./pages/Nutrition'))
 const NutritionAdd = lazy(() => import('./pages/NutritionAdd'))
 const MealItemEdit = lazy(() => import('./pages/MealItemEdit'))
 const Weight = lazy(() => import('./pages/Weight'))
+const Workouts = lazy(() => import('./pages/Workouts'))
+const Workout = lazy(() => import('./pages/Workout'))
+const Exercises = lazy(() => import('./pages/Exercises'))
 
 export default function App() {
   return (
@@ -20,6 +23,9 @@ export default function App() {
         <Route path="/nutrition/add" element={<NutritionAdd />} />
         <Route path="/nutrition/item/:id" element={<MealItemEdit />} />
         <Route path="/weight" element={<Weight />} />
+        <Route path="/workouts" element={<Workouts />} />
+        <Route path="/workouts/:id" element={<Workout />} />
+        <Route path="/exercises" element={<Exercises />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Suspense>

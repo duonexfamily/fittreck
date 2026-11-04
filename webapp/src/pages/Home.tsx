@@ -8,7 +8,7 @@ import { isInTelegram } from '../lib/telegram'
 const SECTIONS: { emoji: string; title: string; hint: string; to?: string }[] = [
   { emoji: '🍽', title: 'Питание', hint: 'Дневник, КБЖУ, вода', to: '/nutrition' },
   { emoji: '⚖️', title: 'Вес', hint: 'Журнал и график', to: '/weight' },
-  { emoji: '🏋️', title: 'Тренировки', hint: 'Скоро' },
+  { emoji: '🏋️', title: 'Тренировки', hint: 'Подходы, RPE', to: '/workouts' },
   { emoji: '😴', title: 'Сон и самочувствие', hint: 'Скоро' },
   { emoji: '📈', title: 'Прогресс', hint: 'Скоро' },
 ]

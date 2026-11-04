@@ -169,10 +169,13 @@ backend/
 | `PATCH/DELETE /meal-items/{id}` | `PATCH {grams}` — граммовка продукта (КБЖУ из снимка), `PATCH {quick}` — КБЖУ быстрой записи; не тот вид — 409. `DELETE` — удалить |
 | `GET /water?date=`, `POST /water` | Вода за день и ориентир (30 мл/кг, 1,5–3,5 л). `POST {date?, delta_ml}`: прибавить, отрицательное — отмена, ниже 0 не опускается |
 | `GET /weight?days=90`, `PUT /weight`, `DELETE /weight/{date}` | Журнал веса. `PUT {date?, weight_kg}` — одна запись в день, перезапись; дата в будущем — 422. Единственную запись удалить нельзя — 409 (по ней считается норма) |
-| `GET /exercises?query=&muscle=` | Каталог упражнений |
-| `POST /exercises` | Своё упражнение |
-| `GET /workouts?from=&to=` | Тренировки за период (для календаря) |
-| `POST /workouts`, `GET/PATCH/DELETE /workouts/{id}` | Тренировка с подходами |
+| `GET /exercises?query=&muscle=&kind=` | Каталог: системные и свои, свои выше; фильтр по группе мышц и виду |
+| `POST /exercises` | Своё упражнение `{name, muscle_group, kind}` |
+| `GET /workouts?from=&to=` | Сводки тренировок за период (по умолчанию 30 дней, максимум 366): упражнения, число подходов, объём |
+| `POST /workouts` | Новая тренировка `{date?}`, статус `planned`; начатая сегодня получает `started_at` |
+| `GET/PATCH/DELETE /workouts/{id}` | Тренировка с подходами по упражнениям и объёмом. `PATCH {status?, rpe?, note?}` — только переданные поля, `null` очищает; `done` ставит `finished_at`, возврат в `planned` сбрасывает |
+| `POST /workouts/{id}/sets` | Подход `{exercise_id, reps?, weight_kg?, duration_s?, distance_m?}` в конец упражнения. Поля по виду: strength — `reps` (+`weight_kg`), cardio — `duration_s` и/или `distance_m`, stretch — `duration_s`; иначе 422 |
+| `PATCH/DELETE /workout-sets/{id}` | `PATCH` заменяет значения подхода целиком (те же правила). `DELETE` — подходы упражнения перенумеровываются без пропусков |
 | `GET/POST /templates`, `POST /templates/{id}/start` | Шаблоны тренировок |
 | `GET /checkins?from=&to=`, `PUT /checkins/{date}` | Чек-ин: сон, энергия, стресс, настроение |
 | `GET /stats/summary?period=` | Данные для графиков: вес, ккал, сон, энергия, объём тренировок |
@@ -196,15 +199,15 @@ backend/
 | `food_favorites` | `user_id`, `food_id`, уникально `(user_id, food_id)` |
 | `water_logs` | `user_id`, `date`, `ml` — сумма за день, уникально `(user_id, date)` |
 | `body_metrics` | `user_id`, `date`, `weight_kg`, `waist_cm`… |
-| `exercises` | `name`, `muscle_group`, `kind` (strength/cardio/stretch), `owner_id` |
-| `workouts` | `user_id`, `date`, `status` (planned/done), `started_at`, `finished_at`, `rpe`, `note` |
-| `workout_sets` | `workout_id`, `exercise_id`, `set_no`, `reps`, `weight_kg`, `duration_s`, `distance_m` |
+| `exercises` | `name`, `muscle_group` (chest/back/shoulders/arms/legs/core/full_body), `kind` (strength/cardio/stretch), `owner_id` (null = системное) |
+| `workouts` | `user_id`, `date`, `status` (planned — не завершена, done), `started_at`, `finished_at`, `rpe` (1–10), `note`; индекс `(user_id, date)` |
+| `workout_sets` | `workout_id`, `exercise_id`, `set_no` (с 1 внутри упражнения), `reps`, `weight_kg`, `duration_s`, `distance_m` |
 | `workout_templates`, `template_exercises` | шаблоны программ |
 | `checkins` | `user_id`, `date` (unique вместе), `bed_time`, `wake_time`, `sleep_quality`, `energy`, `stress`, `mood`, `note` |
 | `reminder_log` | `user_id`, `type`, `sent_on` (местная дата), unique — напоминание за день обработано (отправлено или не нужно) |
 
 - Индексы: `(user_id, date)` на всех дневниковых таблицах, поиск по `foods.name` — `pg_trgm`.
-- Системные справочники (`foods`, позже `exercises`) заполняются data-миграцией Alembic: попадают в
+- Системные справочники (`foods`, `exercises`) заполняются data-миграцией Alembic: попадают в
   прод через pre-deploy `alembic upgrade head`, откат удаляет только системные записи (`owner_id IS NULL`).
   КБЖУ — усреднённые табличные значения, тест сверяет их с формулой Этуотера (±15%).
 - В `meal_items` КБЖУ хранится снимком, чтобы правка справочника не меняла историю.
@@ -250,9 +253,9 @@ Telegram API — официальный скрипт `telegram-web-app.js`, до
 | `/nutrition/add` | Поиск продукта (пустой запрос — избранное и недавние), свой продукт, быстрая запись КБЖУ, слайдер граммовки, ⭐ избранное |
 | `/nutrition/item/:id` | Изменить граммовку (или КБЖУ быстрой записи), удалить запись дневника |
 | `/weight` | Ввод веса, график |
-| `/workouts` | Календарь тренировок |
-| `/workouts/:id` | Трекинг тренировки: упражнения, подходы, RPE |
-| `/exercises` | Каталог упражнений |
+| `/workouts` | Тренировки за 90 дней, «Начать тренировку»; позже — календарь |
+| `/workouts/:id` | Трекинг тренировки: упражнения, подходы, завершение с RPE и заметкой, удаление |
+| `/exercises` | Каталог упражнений, фильтры, своё упражнение; `?pick=<id тренировки>` — выбор для тренировки |
 | `/checkin` | Чек-ин: сон, энергия, стресс, настроение слайдерами |
 | `/stats` | Графики прогресса |
 | `/profile` | Профиль, цели, напоминания, удаление данных |
