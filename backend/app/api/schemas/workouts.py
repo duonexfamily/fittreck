@@ -41,6 +41,11 @@ class SetIn(SetValuesIn):
     exercise_id: int
 
 
+class SetPatch(SetValuesIn):
+    # Сохранённый подход — выполнен. False — вернуть подход шаблона в план
+    done: bool = True
+
+
 class SetOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -51,6 +56,7 @@ class SetOut(BaseModel):
     weight_kg: float | None
     duration_s: int | None
     distance_m: int | None
+    done: bool
 
 
 class ExerciseBlockOut(BaseModel):
@@ -92,6 +98,8 @@ class WorkoutOut(BaseModel):
 
 
 class WorkoutSummaryOut(BaseModel):
+    """set_count и volume_kg — только по выполненным подходам."""
+
     id: int
     date: dt.date
     status: WorkoutStatus
@@ -99,3 +107,28 @@ class WorkoutSummaryOut(BaseModel):
     exercise_names: list[str]
     set_count: int
     volume_kg: float
+
+
+class TemplateIn(BaseModel):
+    """Шаблон сохраняется из тренировки: её упражнения и подходы."""
+
+    name: str = Field(min_length=1, max_length=64)
+    workout_id: int
+
+    @model_validator(mode="after")
+    def _check_name(self) -> "TemplateIn":
+        if not self.name.strip():
+            raise ValueError("название не может быть пустым")
+        return self
+
+
+class TemplateOut(BaseModel):
+    id: int
+    name: str
+    exercise_names: list[str]
+    set_count: int
+
+
+class TemplateStartIn(BaseModel):
+    # Без даты — сегодня в часовом поясе пользователя
+    date: dt.date | None = None

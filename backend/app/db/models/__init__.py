@@ -4,7 +4,13 @@ from app.db.models.meal import Meal, MealItem
 from app.db.models.reminder import ReminderLog, UserSettings
 from app.db.models.user import User
 from app.db.models.water import WaterLog
-from app.db.models.workout import Exercise, Workout, WorkoutSet
+from app.db.models.workout import (
+    Exercise,
+    TemplateSet,
+    Workout,
+    WorkoutSet,
+    WorkoutTemplate,
+)
 
 __all__ = [
     "BodyMetric",
@@ -14,9 +20,11 @@ __all__ = [
     "Meal",
     "MealItem",
     "ReminderLog",
+    "TemplateSet",
     "User",
     "UserSettings",
     "WaterLog",
     "Workout",
     "WorkoutSet",
+    "WorkoutTemplate",
 ]

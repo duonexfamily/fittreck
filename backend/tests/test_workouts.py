@@ -2,20 +2,22 @@ import importlib.util
 from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
-from app.api.schemas.workouts import ExerciseIn, SetIn, WorkoutPatch
+from app.api.schemas.workouts import ExerciseIn, SetIn, SetPatch, TemplateIn, WorkoutPatch
 from app.main import app
+from app.services.templates import _summary
 from app.services.workouts import (
     EXERCISE_KINDS,
     MUSCLE_GROUPS,
     SetValues,
     WrongSetError,
     check_set,
+    done_sets,
     group_sets,
     set_volume,
     volume,
@@ -67,6 +69,31 @@ def test_volume() -> None:
     assert set_volume(sets[1]) == Decimal("500.0")
     assert volume(sets) == Decimal("1100.0")
     assert volume([]) == Decimal(0)
+
+
+def test_planned_sets_do_not_count() -> None:
+    sets: Any = [
+        SimpleNamespace(reps=10, weight_kg=Decimal("60"), done=True),
+        SimpleNamespace(reps=10, weight_kg=Decimal("60"), done=False),
+    ]
+    assert done_sets(sets) == [sets[0]]
+    assert volume(done_sets(sets)) == Decimal("600")
+
+
+def test_template_summary_lists_each_exercise_once() -> None:
+    sets = [SimpleNamespace(exercise=SimpleNamespace(name=n)) for n in ("Присед", "Присед", "Жим")]
+    summary = _summary(cast(Any, SimpleNamespace(sets=sets)))
+    assert summary.exercise_names == ["Присед", "Жим"]
+    assert summary.set_count == 3
+
+
+def test_template_in_and_set_patch() -> None:
+    assert TemplateIn(name=" Ноги ", workout_id=1).name == " Ноги "
+    for bad in ({"name": "  ", "workout_id": 1}, {"name": "x" * 65, "workout_id": 1}):
+        with pytest.raises(ValidationError):
+            TemplateIn.model_validate(bad)
+    assert SetPatch(reps=10).done is True
+    assert SetPatch.model_validate({"reps": 10, "done": False}).done is False
 
 
 def _set(id_: int, exercise_id: int, set_no: int) -> Any:
@@ -129,6 +156,10 @@ def test_workout_patch() -> None:
         ("post", "/api/v1/workouts/1/sets"),
         ("patch", "/api/v1/workout-sets/1"),
         ("delete", "/api/v1/workout-sets/1"),
+        ("get", "/api/v1/templates"),
+        ("post", "/api/v1/templates"),
+        ("delete", "/api/v1/templates/1"),
+        ("post", "/api/v1/templates/1/start"),
     ],
 )
 def test_workout_endpoints_require_auth(method: str, path: str) -> None:
