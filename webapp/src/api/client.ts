@@ -123,3 +123,26 @@ export const updateMealItem = (id: number, grams: number) =>
   api<MealItem>(`/meal-items/${id}`, { method: 'PATCH', body: JSON.stringify({ grams }) })
 
 export const deleteMealItem = (id: number) => api<void>(`/meal-items/${id}`, { method: 'DELETE' })
+
+export interface WeightEntry {
+  date: string
+  weight_kg: number
+}
+
+export interface WaterDay {
+  date: string
+  ml: number
+  target_ml: number
+}
+
+export const getWeightHistory = () => api<WeightEntry[]>('/weight')
+
+export const putWeight = (body: { date: string; weight_kg: number }) =>
+  api<WeightEntry>('/weight', { method: 'PUT', body: JSON.stringify(body) })
+
+export const deleteWeight = (date: string) => api<void>(`/weight/${date}`, { method: 'DELETE' })
+
+export const getWater = (date: string) => api<WaterDay>(`/water?date=${date}`)
+
+export const addWater = (body: { date: string; delta_ml: number }) =>
+  api<WaterDay>('/water', { method: 'POST', body: JSON.stringify(body) })

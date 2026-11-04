@@ -36,6 +36,13 @@ KCAL_PER_G_PROTEIN = 4
 KCAL_PER_G_CARBS = 4
 KCAL_PER_G_FAT = 9
 
+# Вода: общая рекомендация ~30 мл на кг веса, округление до стакана и разумные границы
+WATER_ML_PER_KG = 30
+WATER_STEP_ML = 250
+WATER_MIN_ML = 1500
+WATER_MAX_ML = 3500
+WATER_DEFAULT_ML = 2000
+
 
 @dataclass(frozen=True, slots=True)
 class Targets:
@@ -84,3 +91,11 @@ def calc_targets(
         fat_g=fat_g,
         carbs_g=carbs_g,
     )
+
+
+def calc_water_ml(weight_kg: float | None) -> int:
+    """Ориентир по воде на день, мл. Без веса — средний ориентир."""
+    if weight_kg is None:
+        return WATER_DEFAULT_ML
+    ml = round(weight_kg * WATER_ML_PER_KG / WATER_STEP_ML) * WATER_STEP_ML
+    return min(max(ml, WATER_MIN_ML), WATER_MAX_ML)
