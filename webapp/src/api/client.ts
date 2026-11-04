@@ -314,3 +314,20 @@ export interface Streak {
 }
 
 export const getStreak = () => api<Streak>('/stats/streaks')
+
+export interface DayStats {
+  // null — за день нет данных
+  date: string
+  weight_kg: number | null
+  kcal: number | null
+  sleep_minutes: number | null
+  sleep_quality: number | null
+  energy: number | null
+  stress: number | null
+  mood: number | null
+  workouts: number
+  // Повторы × вес по выполненным подходам
+  volume_kg: number
+}
+
+export const getStatsSummary = (days: number) => api<DayStats[]>(`/stats/summary?days=${days}`)
