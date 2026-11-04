@@ -303,3 +303,14 @@ export const getCheckins = (from: string, to: string) =>
 /** Чек-ин за день заменяется целиком. */
 export const putCheckin = (date: string, body: CheckinValues) =>
   api<Checkin>(`/checkins/${date}`, { method: 'PUT', body: JSON.stringify(body) })
+
+export interface Streak {
+  // Дней подряд с записями. Пока сегодня пусто, серия считается по вчера
+  current: number
+  best: number
+  today_done: boolean
+  // Последние 7 дней, от старых к новым, последний — сегодня
+  week: boolean[]
+}
+
+export const getStreak = () => api<Streak>('/stats/streaks')

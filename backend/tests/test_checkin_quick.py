@@ -14,7 +14,7 @@ from app.bot.keyboards import (
 from app.bot.routers import checkin_quick
 from app.bot.routers import settings as settings_router
 from app.scheduler.jobs import reminder_keyboard
-from app.services import checkins, reminders
+from app.services import checkins, reminders, streaks
 from app.services.profile import user_today
 
 URL = "https://app.example"
@@ -150,12 +150,16 @@ async def test_button_last_question_shows_summary(monkeypatch: pytest.MonkeyPatc
     monkeypatch.setattr(settings_router, "get_by_telegram_id", AsyncMock(return_value=_user()))
     saved = SimpleNamespace(sleep_quality=3, energy=4, mood=5)
     monkeypatch.setattr(checkins, "save_quick", AsyncMock(return_value=saved))
+    streak = streaks.Streak(current=3, best=3, today_done=True, week=(True,) * 7)
+    monkeypatch.setattr(streaks, "get_streak", AsyncMock(return_value=streak))
     data = CheckinCallback(day="2026-11-05", field="mood", value=5)
     callback = _callback(data)
 
     await checkin_quick.on_checkin_button(callback, data, session=AsyncMock())  # type: ignore[arg-type]
 
-    assert "Сон 3/5 · энергия 4/5 · настроение 5/5" in callback.message.edit_text.await_args.args[0]
+    text = callback.message.edit_text.await_args.args[0]
+    assert "Сон 3/5 · энергия 4/5 · настроение 5/5" in text
+    assert "Серия: 3 дня" in text
 
 
 async def test_checkin_command_requires_profile(monkeypatch: pytest.MonkeyPatch) -> None:

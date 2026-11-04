@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link, Navigate } from 'react-router'
 
-import { ApiError, getMe, getTargets } from '../api/client'
+import { ApiError, getMe, getStreak, getTargets } from '../api/client'
+import StreakCard from '../components/StreakCard'
 import TargetsCard from '../components/TargetsCard'
 import { isInTelegram } from '../lib/telegram'
 
@@ -17,6 +18,13 @@ export default function Home() {
   const me = useQuery({ queryKey: ['me'], queryFn: getMe, enabled: isInTelegram })
   const onboarded = Boolean(me.data?.onboarded_at)
   const targets = useQuery({ queryKey: ['targets'], queryFn: getTargets, enabled: onboarded })
+  // Записи делают на других экранах — при возврате на главную пересчитываем серию
+  const streak = useQuery({
+    queryKey: ['streak'],
+    queryFn: getStreak,
+    enabled: onboarded,
+    refetchOnMount: 'always',
+  })
 
   if (!isInTelegram) {
     return (
@@ -41,6 +49,12 @@ export default function Home() {
             ? 'Сессия устарела. Закройте приложение и откройте его снова из бота.'
             : 'Не удалось загрузить профиль. Проверьте интернет и попробуйте ещё раз.'}
         </p>
+      )}
+
+      {streak.data && (
+        <div className="mt-4">
+          <StreakCard streak={streak.data} />
+        </div>
       )}
 
       {targets.data && (

@@ -135,10 +135,23 @@ def checkin_done_keyboard(day: date, webapp_url: str | None) -> InlineKeyboardMa
     )
 
 
-def checkin_done_text(values: Mapping[str, int | None]) -> str:
+def days_word(n: int) -> str:
+    """1 день, 2 дня, 5 дней, 11 дней, 21 день."""
+    if n % 10 == 1 and n % 100 != 11:
+        return "день"
+    if 2 <= n % 10 <= 4 and not 12 <= n % 100 <= 14:
+        return "дня"
+    return "дней"
+
+
+def checkin_done_text(values: Mapping[str, int | None], streak: int = 0) -> str:
     parts = [
         f"{CHECKIN_LABELS[field]} {values[field]}/5"
         for field in CHECKIN_STEPS
         if values.get(field) is not None
     ]
-    return "Готово, чек-ин записан ✅\n" + " · ".join(parts).capitalize()
+    text = "Готово, чек-ин записан ✅\n" + " · ".join(parts).capitalize()
+    # Серию из одного дня не хвалим — это просто сегодняшняя запись
+    if streak > 1:
+        text += f"\n🔥 Серия: {streak} {days_word(streak)} подряд"
+    return text
