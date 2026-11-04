@@ -279,3 +279,27 @@ export const deleteTemplate = (id: number) => api<void>(`/templates/${id}`, { me
 /** Тренировка по шаблону на дату: подходы скопированы невыполненными. */
 export const startTemplate = (id: number, date: string) =>
   api<Workout>(`/templates/${id}/start`, { method: 'POST', body: JSON.stringify({ date }) })
+
+/** Оценки 1–5. Время — на часах пользователя, HH:MM:SS. */
+export interface CheckinValues {
+  bed_time: string | null
+  wake_time: string | null
+  sleep_quality: number | null
+  energy: number | null
+  stress: number | null
+  mood: number | null
+  note: string | null
+}
+
+export interface Checkin extends CheckinValues {
+  date: string
+  // По времени отхода ко сну и подъёма
+  sleep_minutes: number | null
+}
+
+export const getCheckins = (from: string, to: string) =>
+  api<Checkin[]>(`/checkins?from=${from}&to=${to}`)
+
+/** Чек-ин за день заменяется целиком. */
+export const putCheckin = (date: string, body: CheckinValues) =>
+  api<Checkin>(`/checkins/${date}`, { method: 'PUT', body: JSON.stringify(body) })

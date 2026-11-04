@@ -12,6 +12,7 @@ const Weight = lazy(() => import('./pages/Weight'))
 const Workouts = lazy(() => import('./pages/Workouts'))
 const Workout = lazy(() => import('./pages/Workout'))
 const Exercises = lazy(() => import('./pages/Exercises'))
+const Checkin = lazy(() => import('./pages/Checkin'))
 
 export default function App() {
   return (
@@ -26,6 +27,7 @@ export default function App() {
         <Route path="/workouts" element={<Workouts />} />
         <Route path="/workouts/:id" element={<Workout />} />
         <Route path="/exercises" element={<Exercises />} />
+        <Route path="/checkin" element={<Checkin />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Suspense>
