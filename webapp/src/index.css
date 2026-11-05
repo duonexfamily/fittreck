@@ -22,15 +22,24 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Свайп «назад»: под уезжающим экраном затемнённый фон, у края экрана — тень */
-html.swipe-back,
-html.swipe-back body {
-  background: color-mix(in srgb, var(--color-bg-secondary) 70%, #000);
-  overflow-x: hidden;
-}
-html.swipe-back #root {
-  min-height: 100vh;
-  background: var(--color-bg);
-  box-shadow: -6px 0 24px rgb(0 0 0 / 0.18);
+/* Свайп «назад»: капля со стрелкой выезжает от левого края за пальцем, экран не двигается */
+.swipe-back-bubble {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 1000;
+  width: 88px;
+  height: 88px;
+  margin-top: -44px;
+  margin-left: -88px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-text) 14%, var(--color-bg));
+  color: var(--color-text);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 18px;
+  box-sizing: border-box;
+  pointer-events: none;
   will-change: transform;
 }
