@@ -1,4 +1,4 @@
-@import 'tailwindcss';
+@import "tailwindcss";
 
 /* Цвета только из темы Telegram. Запасные значения — для открытия вне Telegram */
 @theme {
@@ -18,6 +18,24 @@ body {
   margin: 0;
   background: var(--color-bg);
   color: var(--color-text);
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Свайп «назад»: под уезжающим экраном затемнённый фон, у края экрана — тень */
+html.swipe-back,
+html.swipe-back body {
+  background: color-mix(in srgb, var(--color-bg-secondary) 70%, #000);
+  overflow-x: hidden;
+}
+html.swipe-back #root {
+  min-height: 100vh;
+  background: var(--color-bg);
+  box-shadow: -6px 0 24px rgb(0 0 0 / 0.18);
+  will-change: transform;
 }
