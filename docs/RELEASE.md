@@ -44,9 +44,8 @@ help - Что умеет бот
 delete_me - Удалить все мои данные
 ```
 
-**Botpic** (`/setuserpic`): готовая картинка `docs/assets/botpic.png` (640×640, пульс с галочкой
-в кольце прогресса), загружена 05.11.2026. Исходник — `docs/assets/botpic.html`; PNG пересобирается так:
-`chrome --headless=new --window-size=640,640 --screenshot=botpic.png botpic.html`.
+**Botpic** (`/setuserpic`): собственный логотип FITTRACK пользователя, загружен 05.11.2026.
+Исходник хранится у пользователя, в репозитории картинок аватарки нет.
 
 **Menu Button** бот ставит сам (`set_chat_menu_button`, кнопка «Открыть»). В `/mybots` → Bot Settings →
 Menu Button ничего менять не нужно.
