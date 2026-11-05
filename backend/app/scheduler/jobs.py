@@ -14,9 +14,9 @@ from aiogram.exceptions import TelegramAPIError, TelegramForbiddenError, Telegra
 from aiogram.types import InlineKeyboardMarkup
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from app.bot.keyboards import checkin_step_keyboard, open_app_keyboard
+from app.bot.keyboards import open_app_keyboard
 from app.db.models import User
-from app.services import checkins, reminders
+from app.services import reminders
 
 logger = logging.getLogger(__name__)
 
@@ -24,10 +24,10 @@ logger = logging.getLogger(__name__)
 SEND_PAUSE = 0.04
 
 
-def reminder_keyboard(item: reminders.Outgoing, webapp_url: str) -> InlineKeyboardMarkup:
-    # На чек-ин отвечают прямо в чате: оценки кнопками, подробности — в приложении
-    if item.type.kind == "checkin":
-        return checkin_step_keyboard(checkins.QUICK_FIELDS[0], item.day, webapp_url)
+def reminder_keyboard(item: reminders.Outgoing, webapp_url: str) -> InlineKeyboardMarkup | None:
+    # Напоминание без подписи кнопки (например, отбой) уходит простым сообщением
+    if not item.type.button:
+        return None
     return open_app_keyboard(webapp_url, item.path or item.type.path, item.type.button)
 
 

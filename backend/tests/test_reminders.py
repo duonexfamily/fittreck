@@ -19,7 +19,10 @@ def test_parse_settings_defaults() -> None:
     settings = parse_settings({})
     assert set(settings) == set(reminders.REMINDERS_BY_KIND)
     assert settings["lunch"] == ReminderSetting(on=True, time=time(13, 30))
-    assert settings["weight"].on is False
+    assert settings["bedtime"] == ReminderSetting(on=False, time=time(22, 30))
+    # Утреннее «Сон» и «Вес» убраны: старые ключи в БД просто игнорируются
+    assert "checkin" not in settings
+    assert "weight" not in parse_settings({"weight": {"on": True, "time": "08:00"}})
 
 
 def test_parse_settings_ignores_broken_values() -> None:
@@ -32,7 +35,7 @@ def test_parse_settings_ignores_broken_values() -> None:
 
 
 def test_dump_parse_roundtrip() -> None:
-    settings = parse_settings({"weight": {"on": True, "time": "07:15"}})
+    settings = parse_settings({"bedtime": {"on": True, "time": "23:15"}})
     assert parse_settings(reminders.dump_settings(settings)) == settings
 
 

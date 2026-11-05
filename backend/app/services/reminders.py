@@ -9,7 +9,6 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import User
-from app.db.repositories.body_metrics import BodyMetricRepository
 from app.db.repositories.checkins import CheckinRepository
 from app.db.repositories.meals import MealRepository
 from app.db.repositories.reminders import ReminderRepository
@@ -27,6 +26,7 @@ class ReminderType:
     default_time: time
     default_on: bool
     text: str
+    # Пустая подпись — сообщение без кнопки
     button: str
     # Экран Mini App, который открывает кнопка
     path: str
@@ -35,14 +35,6 @@ class ReminderType:
 
 
 REMINDER_TYPES: tuple[ReminderType, ...] = (
-    ReminderType(
-        "checkin", "😴 Сон", time(8, 0), False,
-        "Доброе утро! Как спалось? 😴", "😴 Отметить сон", "/checkin",
-    ),
-    ReminderType(
-        "weight", "⚖️ Вес", time(8, 0), False,
-        "Время взвеситься ⚖️ Лучше утром, до завтрака.", "⚖️ Записать вес", "/weight",
-    ),
     ReminderType(
         "breakfast", "🍳 Завтрак", time(9, 30), False,
         "Запиши завтрак — это займёт пару секунд 🍳", "🍳 Записать", "/nutrition?meal=breakfast",
@@ -72,6 +64,12 @@ REMINDER_TYPES: tuple[ReminderType, ...] = (
     ReminderType(
         "week", "📅 Итог недели", time(19, 0), False,
         "Итоги недели 📅", "📈 Посмотреть прогресс", "/stats", weekday=6,
+    ),
+    # Без кнопки: перед сном приложение открывать незачем
+    ReminderType(
+        "bedtime", "🛌 Отбой", time(22, 30), False,
+        "Пора готовиться ко сну 🛌\nОтложи телефон и приглуши свет — завтра скажешь себе спасибо.",
+        "", "",
     ),
 )  # fmt: skip
 WEEKDAY_NAMES = ("пн", "вт", "ср", "чт", "пт", "сб", "вс")
@@ -319,10 +317,6 @@ async def _already_done(session: AsyncSession, user: User, kind: str, day: date)
     if kind == "water":
         water_day = await water.get_day(session, user, day)
         return water_day.ml >= water_day.target_ml
-    if kind == "weight":
-        return bool(await BodyMetricRepository(session).list_weights(user.id, day))
-    if kind == "checkin":
-        return await CheckinRepository(session).exists(user.id, day)
     return False
 
 
