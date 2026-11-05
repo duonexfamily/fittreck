@@ -282,7 +282,7 @@ Telegram API — официальный скрипт `telegram-web-app.js`, до
 
 ### 8.3. Правила
 - Цвета только из `themeParams` Telegram (CSS-переменные `--tg-theme-*`), светлая и тёмная тема.
-- Нативные элементы Telegram: `MainButton` для «Сохранить», `BackButton`, haptic feedback.
+- Нативные элементы Telegram: `MainButton` для «Сохранить», `BackButton` (плюс свайп вправо — `useSwipeBack`), haptic feedback.
 - Часовой пояс берётся при онбординге из `Intl.DateTimeFormat().resolvedOptions().timeZone`.
 - Ленивые загрузки экранов, графики подгружаются отдельным чанком.
 - Локально Vite проксирует `/api` на `localhost:8000`.
