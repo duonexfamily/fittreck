@@ -49,6 +49,16 @@ def test_keyboards_without_https_have_no_app_button() -> None:
     assert checkin_done_keyboard(DAY, None) is None
 
 
+def test_done_keyboard_offers_sleep_time_only_when_missing() -> None:
+    def label(has_sleep_time: bool) -> str:
+        keyboard = checkin_done_keyboard(DAY, URL, has_sleep_time)
+        assert keyboard is not None
+        return keyboard.inline_keyboard[0][0].text
+
+    assert "время сна" in label(False)
+    assert "время сна" not in label(True)
+
+
 def test_callback_data_fits_telegram_limit() -> None:
     # Telegram принимает callback_data не длиннее 64 байт
     for field in checkins.QUICK_FIELDS:
@@ -148,7 +158,7 @@ async def test_button_moves_to_next_question(monkeypatch: pytest.MonkeyPatch) ->
 
 async def test_button_last_question_shows_summary(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(settings_router, "get_by_telegram_id", AsyncMock(return_value=_user()))
-    saved = SimpleNamespace(sleep_quality=3, energy=4, mood=5)
+    saved = SimpleNamespace(sleep_quality=3, energy=4, mood=5, bed_time=None)
     monkeypatch.setattr(checkins, "save_quick", AsyncMock(return_value=saved))
     streak = streaks.Streak(current=3, best=3, today_done=True, week=(True,) * 7)
     monkeypatch.setattr(streaks, "get_streak", AsyncMock(return_value=streak))
