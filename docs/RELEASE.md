@@ -44,8 +44,9 @@ help - Что умеет бот
 delete_me - Удалить все мои данные
 ```
 
-**Botpic** (`/setuserpic`): квадрат 640×640, простой знак на однотонном фоне (например, пульс
-или гантель), без мелкого текста — в списке чатов картинка совсем маленькая.
+**Botpic** (`/setuserpic`): готовая картинка `docs/assets/botpic.png` (640×640, пульс с галочкой
+в кольце прогресса), загружена 05.11.2026. Исходник — `docs/assets/botpic.html`; PNG пересобирается так:
+`chrome --headless=new --window-size=640,640 --screenshot=botpic.png botpic.html`.
 
 **Menu Button** бот ставит сам (`set_chat_menu_button`, кнопка «Открыть»). В `/mybots` → Bot Settings →
 Menu Button ничего менять не нужно.
