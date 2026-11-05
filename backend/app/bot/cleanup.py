@@ -52,7 +52,9 @@ class BotMessageCleanupMiddleware(BaseRequestMiddleware):
         method: TelegramMethod[TelegramType],
     ) -> Response[TelegramType]:
         response = await make_request(bot, method)
-        sent = response.result
+        # Вопреки аннотации aiogram цепочка возвращает сам результат метода
+        # (Message, bool и т.д.), а не обёртку Response
+        sent: Any = response
         # В личном чате id чата совпадает с telegram_id пользователя
         if (
             isinstance(method, SendMessage)
