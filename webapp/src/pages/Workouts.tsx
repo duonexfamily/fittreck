@@ -158,7 +158,7 @@ export default function Workouts() {
   return (
     <main className="p-4 pb-10">
       <div className="flex items-baseline justify-between">
-        <h1 className="text-xl font-semibold">Тренировки</h1>
+        <h1 className="page-title">Тренировки</h1>
         <Link to="/exercises" className="text-sm text-link">
           Каталог упражнений
         </Link>

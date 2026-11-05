@@ -92,7 +92,7 @@ export default function Progress() {
 
   return (
     <main className="p-4">
-      <h1 className="text-xl font-semibold">Прогресс</h1>
+      <h1 className="page-title">Прогресс</h1>
       <div className="mt-4">
         <ChoiceGroup options={PERIODS} value={period} onChange={setPeriod} columns={2} />
       </div>

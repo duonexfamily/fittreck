@@ -220,7 +220,7 @@ export default function Checkin() {
 
   return (
     <main className="p-4 pb-10">
-      <h1 className="text-xl font-semibold">Сон и самочувствие</h1>
+      <h1 className="page-title">Сон и самочувствие</h1>
       <div className="mt-3 flex items-center justify-between rounded-2xl bg-bg-secondary p-2">
         <button
           type="button"

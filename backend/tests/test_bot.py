@@ -23,7 +23,10 @@ async def test_start_escapes_name(monkeypatch: pytest.MonkeyPatch) -> None:
 
     text = message.answer.await_args.args[0]
     assert "&lt;b&gt;Tom &amp; Jerry&lt;/b&gt;" in text
-    assert "<b>" not in text
+    # Своя разметка в приветствии есть, но имя пользователя в неё не попадает сырым
+    assert "<b>Tom" not in text
+    # Приветствие перечисляет команды
+    assert "/checkin" in text and "/settings" in text
 
 
 async def test_help_answers() -> None:

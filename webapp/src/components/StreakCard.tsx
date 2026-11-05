@@ -30,7 +30,7 @@ export default function StreakCard({ streak }: { streak: Streak }) {
       <div className="flex items-baseline justify-between">
         <div>
           <div className="text-sm text-hint">Серия</div>
-          <div className="mt-1 text-3xl font-semibold">
+          <div className="font-display mt-1 text-3xl font-extrabold tabular-nums">
             {streak.current > 0 ? '🔥 ' : ''}
             {streak.current}{' '}
             <span className="text-base font-normal text-hint">
@@ -51,7 +51,7 @@ export default function StreakCard({ streak }: { streak: Streak }) {
         {days.map((d, i) => (
           <li key={i} className="flex flex-col items-center gap-1">
             <span
-              className={`size-7 rounded-full ${d.active ? 'bg-button' : 'bg-bg'}`}
+              className={`grid size-7 place-items-center rounded-full text-sm ${d.active ? 'streak-dot' : 'bg-bg'}`}
               aria-label={d.active ? 'есть записи' : 'нет записей'}
             />
             <span className="text-xs text-hint">{d.label}</span>
