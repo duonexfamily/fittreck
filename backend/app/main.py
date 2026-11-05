@@ -14,7 +14,13 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.v1 import router as api_router
-from app.bot.setup import WEBHOOK_PATH, configure_bot, create_bot, create_dispatcher
+from app.bot.setup import (
+    WEBHOOK_PATH,
+    configure_bot,
+    create_bot,
+    create_dispatcher,
+    enable_chat_cleanup,
+)
 from app.core.config import get_settings
 from app.core.keepalive import keepalive_loop
 from app.core.logging import setup_logging
@@ -35,6 +41,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     engine = create_engine(settings)
     sessionmaker = create_sessionmaker(engine)
     bot = create_bot(settings)
+    enable_chat_cleanup(bot, sessionmaker)
     dp = create_dispatcher(sessionmaker)
 
     app.state.sessionmaker = sessionmaker

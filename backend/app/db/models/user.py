@@ -22,3 +22,6 @@ class User(TimestampMixin, Base):
     activity_level: Mapped[str | None] = mapped_column(String(16))
     timezone: Mapped[str] = mapped_column(String(64), server_default="Europe/Moscow")
     onboarded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    # Последнее сообщение бота в чате: при отправке нового его удаляем, чтобы чат не копился
+    last_bot_message_id: Mapped[int | None] = mapped_column(BigInteger)
