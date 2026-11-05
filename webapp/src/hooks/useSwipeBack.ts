@@ -2,16 +2,18 @@ import { useEffect } from 'react'
 
 import { haptic } from '../lib/telegram'
 
-// Жест «назад» как в iOS и Mini App BotFather: экран едет за пальцем, под ним затемнённый фон.
-// Отпустили дальше трети экрана или смахнули — экран плавно уезжает вправо, предыдущий выезжает слева.
+// Жест «назад» как в Mini App BotFather (системный жест Android): экран стоит на месте,
+// от левого края на высоте пальца выезжает капля со стрелкой. Выехала полностью и палец
+// отпущен — возврат назад. Не дотянули — капля прячется.
 const LOCK_DISTANCE = 12 // px: после этого решаем, жест горизонтальный или это прокрутка
-const BACK_RATIO = 0.35 // доля ширины экрана, после которой уходим назад
-const BACK_VELOCITY = 0.6 // px/мс: быстрый взмах тоже считается…
-const MIN_FLICK = 60 // …но только если протянули хотя бы столько
-const EASE = 'cubic-bezier(0.2, 0.8, 0.2, 1)' // мягкое замедление, как у iOS
-const OUT_MS = 260
-const IN_MS = 300
-const PARALLAX = 0.25 // предыдущий экран выезжает с четверти ширины
+const FULL_DISTANCE = 110 // px пальцем, за которые капля выезжает полностью
+const BUBBLE_MAX = 44 // px: насколько капля выезжает из-за края
+const TRIGGER = 0.9 // доля пути, после которой отпускание = «назад»
+const HIDE_MS = 200
+
+const CHEVRON =
+  '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+  'stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>'
 
 /** Не перехватываем жест на слайдерах, полях ввода и в горизонтально прокручиваемых лентах. */
 function blocksSwipe(target: EventTarget | null): boolean {
@@ -27,33 +29,38 @@ function blocksSwipe(target: EventTarget | null): boolean {
   return false
 }
 
-/** Сбрасывает стили жеста, когда анимация закончилась. */
-function clearAfter(root: HTMLElement, ms: number) {
-  window.setTimeout(() => {
-    root.style.transition = ''
-    root.style.transform = ''
-    root.style.opacity = ''
-    document.documentElement.classList.remove('swipe-back')
-  }, ms)
-}
-
 export function useSwipeBack(onBack: (() => void) | null) {
   useEffect(() => {
-    const root = document.getElementById('root')
-    if (!root || !onBack) return
+    if (!onBack) return
+
+    const bubble = document.createElement('div')
+    bubble.className = 'swipe-back-bubble'
+    bubble.innerHTML = CHEVRON
+    bubble.style.display = 'none'
+    document.body.appendChild(bubble)
+    const chevron = bubble.firstElementChild as SVGElement
 
     let startX = 0
     let startY = 0
-    let lastX = 0
-    let lastTime = 0
-    let velocity = 0
-    let dx = 0
-    // idle — ждём касания, pending — ещё не ясно направление, swiping — тянем экран, ignored — не наш жест
+    let progress = 0 // 0…1 — насколько выехала капля
+    let armed = false // капля выехала достаточно, отпускание = «назад»
+    // idle — ждём касания, pending — ещё не ясно направление, swiping — тянем, ignored — не наш жест
     let state: 'idle' | 'pending' | 'swiping' | 'ignored' = 'idle'
 
-    const move = (x: number, ms: number) => {
-      root.style.transition = ms ? `transform ${ms}ms ${EASE}` : 'none'
-      root.style.transform = `translate3d(${x}px, 0, 0)`
+    const draw = (y: number, ms: number) => {
+      bubble.style.transition = ms ? `transform ${ms}ms ease-out` : 'none'
+      bubble.style.transform = `translate3d(${progress * BUBBLE_MAX}px, ${y}px, 0)`
+      chevron.style.transition = ms ? `opacity ${ms}ms, transform ${ms}ms` : 'none'
+      chevron.style.opacity = String(Math.min(1, progress * 1.4))
+      chevron.style.transform = `scale(${0.6 + progress * 0.4})`
+    }
+
+    const hide = (y: number) => {
+      progress = 0
+      draw(y, HIDE_MS)
+      window.setTimeout(() => {
+        if (state !== 'swiping') bubble.style.display = 'none'
+      }, HIDE_MS)
     }
 
     const onStart = (e: TouchEvent) => {
@@ -62,11 +69,10 @@ export function useSwipeBack(onBack: (() => void) | null) {
         return
       }
       const t = e.touches[0]
-      startX = lastX = t.clientX
+      startX = t.clientX
       startY = t.clientY
-      lastTime = e.timeStamp
-      velocity = 0
-      dx = 0
+      progress = 0
+      armed = false
       state = 'pending'
     }
 
@@ -80,67 +86,42 @@ export function useSwipeBack(onBack: (() => void) | null) {
         // Вправо и заметно горизонтальнее, чем вертикально — иначе это обычная прокрутка
         state = moveX > 0 && moveX > Math.abs(moveY) * 1.5 ? 'swiping' : 'ignored'
         if (state === 'ignored') return
-        startX = t.clientX // экран начинает ехать с места, где жест распознан, без рывка
-        document.documentElement.classList.add('swipe-back')
+        startX = t.clientX // капля начинает выезжать с места, где жест распознан
+        bubble.style.display = 'flex'
       }
       e.preventDefault() // не даём странице прокручиваться, пока тянем
-      // Скорость сглаживаем, чтобы один дёрганый кадр не решал исход жеста
-      const dt = Math.max(1, e.timeStamp - lastTime)
-      velocity = velocity * 0.6 + ((t.clientX - lastX) / dt) * 0.4
-      lastX = t.clientX
-      lastTime = e.timeStamp
-      dx = Math.max(0, t.clientX - startX)
-      move(dx, 0)
+      progress = Math.min(1, Math.max(0, t.clientX - startX) / FULL_DISTANCE)
+      // Лёгкая отдача, когда капля «взвелась» и когда её потянули обратно
+      const nowArmed = progress >= TRIGGER
+      if (nowArmed !== armed) {
+        armed = nowArmed
+        haptic.select()
+      }
+      draw(t.clientY, 0)
     }
 
-    const onEnd = () => {
+    const finish = (e: TouchEvent, allowBack: boolean) => {
       if (state !== 'swiping') {
         state = 'idle'
         return
       }
       state = 'idle'
-      const width = window.innerWidth
-      const goBack = dx > width * BACK_RATIO || (dx > MIN_FLICK && velocity > BACK_VELOCITY)
-      if (!goBack) {
-        // Не дотянули — экран мягко возвращается на место
-        move(0, OUT_MS)
-        clearAfter(root, OUT_MS)
-        return
-      }
-      // Чем быстрее смахнули, тем быстрее уезжает экран
-      const outMs = Math.round(
-        Math.min(OUT_MS, Math.max(140, ((width - dx) / Math.max(velocity, 1)) * 1.2)),
-      )
-      move(width, outMs)
-      window.setTimeout(() => {
-        haptic.select()
-        onBack()
-        // Предыдущий экран выезжает слева с небольшим сдвигом и проявляется
-        root.style.transition = 'none'
-        root.style.transform = `translate3d(${-width * PARALLAX}px, 0, 0)`
-        root.style.opacity = '0.6'
-        requestAnimationFrame(() =>
-          requestAnimationFrame(() => {
-            root.style.transition = `transform ${IN_MS}ms ${EASE}, opacity ${IN_MS}ms ${EASE}`
-            root.style.transform = 'translate3d(0, 0, 0)'
-            root.style.opacity = '1'
-            clearAfter(root, IN_MS)
-          }),
-        )
-      }, outMs)
+      hide(e.changedTouches[0]?.clientY ?? startY)
+      if (allowBack && armed) onBack()
     }
+    const onEnd = (e: TouchEvent) => finish(e, true)
+    const onCancel = (e: TouchEvent) => finish(e, false)
 
     document.addEventListener('touchstart', onStart, { passive: true })
     document.addEventListener('touchmove', onMove, { passive: false })
     document.addEventListener('touchend', onEnd)
-    document.addEventListener('touchcancel', onEnd)
+    document.addEventListener('touchcancel', onCancel)
     return () => {
       document.removeEventListener('touchstart', onStart)
       document.removeEventListener('touchmove', onMove)
       document.removeEventListener('touchend', onEnd)
-      document.removeEventListener('touchcancel', onEnd)
-      // Анимацию перехода не трогаем: она сама уберёт стили по окончании
-      if (state === 'swiping') clearAfter(root, 0)
+      document.removeEventListener('touchcancel', onCancel)
+      bubble.remove()
     }
   }, [onBack])
 }
