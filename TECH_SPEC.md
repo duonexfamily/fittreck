@@ -196,7 +196,7 @@ backend/
 
 | Таблица | Ключевые поля |
 |---|---|
-| `users` | `telegram_id` (unique), `first_name`, `username`, `sex`, `birth_date`, `height_cm`, `goal`, `activity_level`, `timezone`, `onboarded_at` |
+| `users` | `telegram_id` (unique), `first_name`, `username`, `sex`, `birth_date`, `height_cm`, `goal`, `activity_level`, `timezone`, `onboarded_at`, `last_bot_message_id` |
 | `user_settings` | `user_id` (unique), `reminders` (jsonb: `{"lunch": {"on": true, "time": "13:30"}}`; нет ключа — по умолчанию). Строка создаётся при первом изменении |
 | `foods` | `name`, `kcal`, `protein`, `fat`, `carbs` (на 100 г), `owner_id` (null = системный) |
 | `meals` | `user_id`, `date`, `meal_type` (breakfast/lunch/dinner/snack) |
@@ -225,6 +225,10 @@ backend/
 - `/start` — регистрация, приветствие, кнопка «Открыть приложение». Установка Menu Button с Mini App.
 - `/delete_me` — удаление всех данных после подтверждения кнопкой (`del:confirm` / `del:cancel`);
   удаляется строка `users`, остальное — каскадом в БД. То же — `DELETE /me` в API.
+- Чистый чат (`app/bot/cleanup.py`): request-middleware на `SendMessage` в личном чате запоминает
+  `users.last_bot_message_id` и удаляет прошлое сообщение бота; outer-middleware на `message`
+  удаляет команду пользователя после ответа. Ловит и ответы, и напоминания планировщика.
+  Сообщения старше 48 ч Telegram удалить не даёт — ошибка гасится.
 - `/settings` — напоминания кнопками: список типов → карточка (вкл/выкл, время −1 ч / −15 / +15 / +1 ч).
   Только после анкеты. Данные кнопок (`rem:<action>:<kind>:<minutes>`) проверяются на сервере.
 - `/checkin` и утреннее напоминание «Как спалось?» — быстрый чек-ин кнопками в чате

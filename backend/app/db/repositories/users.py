@@ -1,4 +1,4 @@
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -42,3 +42,18 @@ class UserRepository:
     async def delete(self, user_id: int) -> None:
         """Удаляет пользователя. Все его записи удаляет БД каскадом (ON DELETE CASCADE)."""
         await self.session.execute(delete(User).where(User.id == user_id))
+
+    async def swap_last_bot_message(self, telegram_id: int, message_id: int) -> int | None:
+        """Запоминает новое сообщение бота и возвращает id прошлого (его пора удалить)."""
+        result = await self.session.execute(
+            select(User.last_bot_message_id)
+            .where(User.telegram_id == telegram_id)
+            .with_for_update()
+        )
+        previous = result.scalar_one_or_none()
+        await self.session.execute(
+            update(User)
+            .where(User.telegram_id == telegram_id)
+            .values(last_bot_message_id=message_id)
+        )
+        return previous

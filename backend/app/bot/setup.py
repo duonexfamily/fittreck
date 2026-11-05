@@ -7,6 +7,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import BotCommand, ErrorEvent, MenuButtonWebApp, WebAppInfo
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.bot.cleanup import BotMessageCleanupMiddleware, DeleteIncomingMiddleware
 from app.bot.middlewares import DbSessionMiddleware
 from app.bot.routers import build_router
 from app.core.config import Settings
@@ -37,9 +38,16 @@ def create_dispatcher(sessionmaker: async_sessionmaker[AsyncSession]) -> Dispatc
     # FSM бота минимальна — хватает памяти процесса (см. TECH_SPEC.md)
     dp = Dispatcher(storage=MemoryStorage())
     dp.update.middleware(DbSessionMiddleware(sessionmaker))
+    # Команды пользователя удаляем после ответа — чат не засоряется
+    dp.message.outer_middleware(DeleteIncomingMiddleware())
     dp.errors.register(on_error)
     dp.include_router(build_router())
     return dp
+
+
+def enable_chat_cleanup(bot: Bot, sessionmaker: async_sessionmaker[AsyncSession]) -> None:
+    """Новое сообщение бота заменяет прошлое: в чате остаётся только последнее."""
+    bot.session.middleware(BotMessageCleanupMiddleware(sessionmaker))
 
 
 async def configure_bot(bot: Bot, settings: Settings) -> None:
