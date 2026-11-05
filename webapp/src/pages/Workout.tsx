@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useCallback, useState } from 'react'
+import { Suspense, lazy, useCallback, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router'
 
 import {
@@ -16,6 +16,7 @@ import {
   updateSet,
   updateWorkout,
 } from '../api/client'
+import GuideButton from '../components/GuideButton'
 import NumberInput from '../components/NumberInput'
 import SliderField from '../components/SliderField'
 import { useBackButton } from '../hooks/useBackButton'
@@ -34,6 +35,8 @@ import {
   timeUnit,
 } from '../lib/workouts'
 import { haptic } from '../lib/telegram'
+
+const ExerciseGuide = lazy(() => import('../components/ExerciseGuide'))
 
 const DEFAULT_RPE = 6
 
@@ -115,11 +118,13 @@ function ExerciseCard({
   exercise,
   sets,
   startAdding,
+  onGuide,
 }: {
   workoutId: number
   exercise: Exercise
   sets: WorkoutSet[]
   startAdding: boolean
+  onGuide: (e: Exercise) => void
 }) {
   const queryClient = useQueryClient()
   // 'new' — добавляется подход, число — правится подход с этим id
@@ -173,9 +178,20 @@ function ExerciseCard({
 
   return (
     <section className="rounded-2xl bg-bg-secondary p-4">
-      <h2 className="font-medium">{exercise.name}</h2>
-      <div className="text-xs text-hint">
-        {MUSCLE_LABELS[exercise.muscle_group]} · {KIND_LABELS[exercise.kind].hint}
+      <div className="-mt-1 -mr-2 flex items-start gap-1">
+        <div className="min-w-0 flex-1 pt-1">
+          <h2 className="font-medium">{exercise.name}</h2>
+          <div className="text-xs text-hint">
+            {MUSCLE_LABELS[exercise.muscle_group]} · {KIND_LABELS[exercise.kind].hint}
+          </div>
+        </div>
+        <GuideButton
+          name={exercise.name}
+          onClick={() => {
+            haptic.select()
+            onGuide(exercise)
+          }}
+        />
       </div>
       {sets.length > 0 && (
         <ul className="mt-2 divide-y divide-bg">
@@ -301,7 +317,16 @@ function MainAction(props: Parameters<typeof useMainButton>[0]) {
   return null
 }
 
-function Outcome({ workout, onSaved }: { workout: WorkoutData; onSaved: () => void }) {
+/** paused — кнопка внизу занята карточкой техники. */
+function Outcome({
+  workout,
+  onSaved,
+  paused,
+}: {
+  workout: WorkoutData
+  onSaved: () => void
+  paused: boolean
+}) {
   const [rpe, setRpe] = useState(workout.rpe ?? DEFAULT_RPE)
   const [note, setNote] = useState(workout.note ?? '')
   const finishing = workout.status === 'planned'
@@ -345,7 +370,7 @@ function Outcome({ workout, onSaved }: { workout: WorkoutData; onSaved: () => vo
         className="mt-3 w-full resize-none rounded-xl bg-bg p-3 outline-none"
       />
       {save.isError && <p className="mt-2 text-sm text-destructive">Не получилось сохранить.</p>}
-      <MainAction text="Сохранить" onClick={submit} loading={save.isPending} />
+      {!paused && <MainAction text="Сохранить" onClick={submit} loading={save.isPending} />}
     </section>
   )
 }
@@ -358,6 +383,9 @@ export default function Workout() {
   const picked = (useLocation().state as { exercise?: Exercise } | null)?.exercise
   const [outcomeOpen, setOutcomeOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  // Открытая карточка техники
+  const [guide, setGuide] = useState<Exercise | null>(null)
+  const closeGuide = useCallback(() => setGuide(null), [])
 
   const me = useQuery({ queryKey: ['me'], queryFn: getMe })
   const workout = useQuery({
@@ -372,7 +400,9 @@ export default function Workout() {
     () => navigate(day ? `/workouts?day=${day}` : '/workouts', { replace: true }),
     [navigate, day],
   )
-  useBackButton(toList)
+  // «Назад» сначала закрывает карточку техники
+  const back = useCallback(() => (guide ? setGuide(null) : toList()), [guide, toList])
+  useBackButton(back)
 
   const remove = useMutation({
     mutationFn: () => deleteWorkout(id),
@@ -443,6 +473,7 @@ export default function Workout() {
             exercise={b.exercise}
             sets={b.sets}
             startAdding={b.sets.length === 0}
+            onGuide={setGuide}
           />
         ))}
         <Link
@@ -454,7 +485,7 @@ export default function Workout() {
         {hasSets && <SaveTemplate workoutId={w.id} />}
 
         {outcomeOpen ? (
-          <Outcome workout={w} onSaved={onSaved} />
+          <Outcome workout={w} onSaved={onSaved} paused={guide !== null} />
         ) : (
           w.status === 'done' && (
             <section className="rounded-2xl bg-bg-secondary p-4">
@@ -472,7 +503,7 @@ export default function Workout() {
         )}
       </div>
 
-      {w.status === 'planned' && !outcomeOpen && (
+      {w.status === 'planned' && !outcomeOpen && !guide && (
         <MainAction text="Завершить тренировку" onClick={openOutcome} enabled={hasDone} />
       )}
 
@@ -485,6 +516,12 @@ export default function Workout() {
         {confirmDelete ? 'Точно удалить? Нажмите ещё раз' : 'Удалить тренировку'}
       </button>
       {remove.isError && <p className="mt-4 text-sm text-destructive">Не получилось удалить.</p>}
+
+      {guide && (
+        <Suspense fallback={null}>
+          <ExerciseGuide exercise={guide} onClose={closeGuide} />
+        </Suspense>
+      )}
     </main>
   )
 }
