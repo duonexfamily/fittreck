@@ -33,7 +33,7 @@ async def _run(method: object, result: object, previous: int | None) -> AsyncMoc
     with pytest.MonkeyPatch.context() as mp:
         mp.setattr(cleanup, "replace_bot_message", replace)
         middleware = cleanup.BotMessageCleanupMiddleware(_sessionmaker())
-        make_request = AsyncMock(return_value=SimpleNamespace(result=result))
+        make_request = AsyncMock(return_value=result)
         await middleware(make_request, bot, method)  # type: ignore[arg-type]
     return bot
 
@@ -56,6 +56,12 @@ async def test_group_chat_untouched() -> None:
 async def test_edit_is_not_tracked() -> None:
     method = EditMessageText(chat_id=1, message_id=3, text="hi")
     bot = await _run(method, _sent(), previous=10)
+    bot.delete_message.assert_not_awaited()
+
+
+async def test_non_message_result_passes_through() -> None:
+    # set_my_commands и подобные возвращают bool — middleware не должен на них падать
+    bot = await _run(SendMessage(chat_id=1, text="hi"), True, previous=10)
     bot.delete_message.assert_not_awaited()
 
 
@@ -89,3 +95,35 @@ async def test_service_skips_same_message(monkeypatch: pytest.MonkeyPatch) -> No
     monkeypatch.setattr(chat_cleanup, "UserRepository", repo)
     assert await chat_cleanup.replace_bot_message(AsyncMock(), 1, 5) is None
     assert await chat_cleanup.replace_bot_message(AsyncMock(), 1, 6) == 5
+
+
+async def test_real_aiogram_chain(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Через настоящую цепочку middleware aiogram: прошлый тест на моках не поймал,
+    # что make_request возвращает результат, а не Response, и прод не запустился
+    from datetime import datetime
+
+    from aiogram import Bot
+    from aiogram.methods import SetMyCommands
+    from aiogram.types import Chat, Message
+
+    from tests.conftest import TEST_BOT_TOKEN
+
+    sent = Message(
+        message_id=20, date=datetime.now(), chat=Chat(id=1, type=ChatType.PRIVATE), text="hi"
+    )
+    bot = Bot(TEST_BOT_TOKEN)
+    calls: list[object] = []
+
+    async def fake_request(bot: Bot, method: object, **_: object) -> object:
+        calls.append(method)
+        return sent if isinstance(method, SendMessage) else True
+
+    monkeypatch.setattr(bot.session, "make_request", fake_request)
+    monkeypatch.setattr(cleanup, "replace_bot_message", AsyncMock(return_value=10))
+    bot.session.middleware(cleanup.BotMessageCleanupMiddleware(_sessionmaker()))
+
+    assert await bot(SetMyCommands(commands=[])) is True
+    assert await bot.send_message(1, "hi") == sent
+    deletes = [c for c in calls if type(c).__name__ == "DeleteMessage"]
+    assert len(deletes) == 1
+    await bot.session.close()
