@@ -17,6 +17,10 @@ htmlcov/
 node_modules/
 webapp/dist/
 backend/static/
+*.tsbuildinfo
+
+# Отчёты сканов безопасности
+CLAUDE-SECURITY-*/
 
 # IDE и ОС
 .vscode/
