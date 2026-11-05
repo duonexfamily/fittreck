@@ -8,7 +8,6 @@ from pydantic import ValidationError
 from app.api.schemas.checkins import CheckinIn
 from app.main import app
 from app.services.checkins import sleep_minutes
-from app.services.reminders import REMINDERS_BY_KIND
 
 client = TestClient(app)
 
@@ -54,13 +53,6 @@ def test_checkin_in_accepts_partial() -> None:
 def test_checkin_in_rejects(body: dict[str, Any]) -> None:
     with pytest.raises(ValidationError):
         CheckinIn.model_validate(body)
-
-
-def test_checkin_reminder_opens_checkin_screen() -> None:
-    reminder = REMINDERS_BY_KIND["checkin"]
-    assert reminder.path == "/checkin"
-    # Новое напоминание не включается само у тех, кто уже пользуется ботом
-    assert reminder.default_on is False
 
 
 @pytest.mark.parametrize(

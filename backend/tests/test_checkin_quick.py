@@ -78,13 +78,14 @@ def test_done_text_skips_missing() -> None:
     assert "энергия" not in text
 
 
-def test_checkin_reminder_asks_in_chat() -> None:
-    item = reminders.Outgoing(1, 101, reminders.REMINDERS_BY_KIND["checkin"], DAY)
-    first = reminder_keyboard(item, URL).inline_keyboard[0][0]
-    assert CheckinCallback.unpack(first.callback_data or "").field == "sleep_quality"
+def test_bedtime_reminder_has_no_button() -> None:
+    item = reminders.Outgoing(1, 101, reminders.REMINDERS_BY_KIND["bedtime"], DAY)
+    assert reminder_keyboard(item, URL) is None
     # Остальные напоминания по-прежнему открывают Mini App
     lunch = reminders.Outgoing(1, 101, reminders.REMINDERS_BY_KIND["lunch"], DAY)
-    assert reminder_keyboard(lunch, URL).inline_keyboard[0][0].web_app is not None
+    keyboard = reminder_keyboard(lunch, URL)
+    assert keyboard is not None
+    assert keyboard.inline_keyboard[0][0].web_app is not None
 
 
 @pytest.mark.parametrize(
