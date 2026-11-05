@@ -69,6 +69,8 @@ async def on_checkin_button(
         await callback.answer()
         return
 
+    # Отвечаем на нажатие сразу — у кнопки пропадают «часики», дальше правим сообщение
+    await callback.answer("Записал ✅")
     webapp_url = _webapp_url()
     following = next_field(callback_data.field)
     if following is None:
@@ -85,4 +87,3 @@ async def on_checkin_button(
         await message.edit_text(
             question, reply_markup=checkin_step_keyboard(following, day, webapp_url)
         )
-    await callback.answer("Записал ✅")

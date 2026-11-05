@@ -7,6 +7,7 @@ from aiogram.exceptions import TelegramBadRequest
 from aiogram.methods import EditMessageText, SendMessage
 
 from app.bot import cleanup
+from app.bot.background import drain
 from app.services import chat_cleanup
 
 
@@ -35,6 +36,7 @@ async def _run(method: object, result: object, previous: int | None) -> AsyncMoc
         middleware = cleanup.BotMessageCleanupMiddleware(_sessionmaker())
         make_request = AsyncMock(return_value=result)
         await middleware(make_request, bot, method)  # type: ignore[arg-type]
+        await drain()  # очистка идёт в фоне
     return bot
 
 
@@ -84,6 +86,7 @@ async def test_incoming_command_deleted_after_answer() -> None:
     handler = AsyncMock(return_value="ok")
 
     result = await cleanup.DeleteIncomingMiddleware()(handler, message, {})
+    await drain()
 
     assert result == "ok"
     message.bot.delete_message.assert_awaited_once_with(chat_id=1, message_id=7)
@@ -124,6 +127,7 @@ async def test_real_aiogram_chain(monkeypatch: pytest.MonkeyPatch) -> None:
 
     assert await bot(SetMyCommands(commands=[])) is True
     assert await bot.send_message(1, "hi") == sent
+    await drain()
     deletes = [c for c in calls if type(c).__name__ == "DeleteMessage"]
     assert len(deletes) == 1
     await bot.session.close()

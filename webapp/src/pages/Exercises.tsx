@@ -98,6 +98,9 @@ export default function Exercises() {
     queryFn: () => searchExercises({ query: q, muscle: filter.muscle, kind: filter.kind }),
     placeholderData: (prev) => prev,
   })
+  // Пока ввод не устоялся или грузится новый ответ, на экране старые данные —
+  // «ничего не нашлось» по ним показывать нельзя
+  const searching = q !== query.trim() || list.isPlaceholderData || list.isPending
 
   const back = useCallback(() => {
     if (guide) setGuide(null)
@@ -167,7 +170,9 @@ export default function Exercises() {
       </div>
 
       {list.isError && <p className="mt-4 text-hint">Не удалось загрузить каталог.</p>}
-      {list.data?.length === 0 && <p className="mt-4 text-hint">Ничего не нашлось.</p>}
+      {list.data?.length === 0 && (
+        <p className="mt-4 text-hint">{searching ? 'Ищу…' : 'Ничего не нашлось.'}</p>
+      )}
       {list.data && list.data.length > 0 && (
         <ul className="mt-2 divide-y divide-bg-secondary">
           {list.data.map((e) => {
