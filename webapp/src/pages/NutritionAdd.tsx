@@ -81,6 +81,9 @@ function FoodSearch({
   // Избранное показано отдельным списком — в недавних не повторяем
   const favoriteIds = new Set(favorites.data?.map((f) => f.id))
   const recent = foods.data?.filter((f) => !favoriteIds.has(f.id)) ?? []
+  // Пока ввод не устоялся или грузится новый ответ, на экране старые данные —
+  // «ничего не нашлось» по ним показывать нельзя
+  const searching = q !== query.trim() || foods.isPlaceholderData || foods.isPending
 
   return (
     <>
@@ -96,7 +99,9 @@ function FoodSearch({
       {q ? (
         <>
           {foods.data?.length === 0 && (
-            <p className="mt-4 text-hint">Ничего не нашлось. Добавьте свой продукт.</p>
+            <p className="mt-4 text-hint">
+              {searching ? 'Ищу…' : 'Ничего не нашлось. Добавьте свой продукт.'}
+            </p>
           )}
           {foods.data && <FoodList foods={foods.data} onSelect={onSelect} />}
         </>

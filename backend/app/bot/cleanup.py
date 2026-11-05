@@ -22,6 +22,7 @@ from aiogram.methods.base import TelegramType
 from aiogram.types import Message, TelegramObject
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.bot.background import spawn
 from app.services.chat_cleanup import replace_bot_message
 
 logger = logging.getLogger(__name__)
@@ -61,16 +62,20 @@ class BotMessageCleanupMiddleware(BaseRequestMiddleware):
             and isinstance(sent, Message)
             and sent.chat.type == ChatType.PRIVATE
         ):
-            try:
-                async with self.sessionmaker() as session:
-                    previous = await replace_bot_message(session, sent.chat.id, sent.message_id)
-            except Exception:
-                # Очистка — не главное: сообщение уже доставлено, ошибку только логируем
-                logger.warning("Не удалось запомнить сообщение бота", exc_info=True)
-                return response
-            if previous is not None:
-                await safe_delete(bot, sent.chat.id, previous)
+            # Очистка — в фоне: ответ уже доставлен, следующий шаг хендлера ждать не должен
+            spawn(self._replace(bot, sent.chat.id, sent.message_id))
         return response
+
+    async def _replace(self, bot: Bot, chat_id: int, message_id: int) -> None:
+        try:
+            async with self.sessionmaker() as session:
+                previous = await replace_bot_message(session, chat_id, message_id)
+        except Exception:
+            # Очистка — не главное: сообщение уже доставлено, ошибку только логируем
+            logger.warning("Не удалось запомнить сообщение бота", exc_info=True)
+            return
+        if previous is not None:
+            await safe_delete(bot, chat_id, previous)
 
 
 class DeleteIncomingMiddleware(BaseMiddleware):
@@ -84,5 +89,5 @@ class DeleteIncomingMiddleware(BaseMiddleware):
     ) -> Any:
         result = await handler(event, data)
         if isinstance(event, Message) and event.chat.type == ChatType.PRIVATE and event.bot:
-            await safe_delete(event.bot, event.chat.id, event.message_id)
+            spawn(safe_delete(event.bot, event.chat.id, event.message_id))
         return result

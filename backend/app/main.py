@@ -14,6 +14,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.v1 import router as api_router
+from app.bot.background import drain, spawn
 from app.bot.setup import (
     WEBHOOK_PATH,
     configure_bot,
@@ -91,6 +92,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             polling_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await polling_task
+        # Даём фоновым задачам (апдейты, очистка чата) закончиться до закрытия сессий
+        await drain()
         await bot.session.close()
         await engine.dispose()
 
@@ -119,7 +122,8 @@ async def telegram_webhook(
 
     bot = request.app.state.bot
     update = Update.model_validate(await request.json(), context={"bot": bot})
-    await request.app.state.dp.feed_update(bot, update)
+    # Отвечаем Telegram сразу, апдейт обрабатываем в фоне: следующие придут без очереди
+    spawn(request.app.state.dp.feed_update(bot, update))
     return Response(status_code=status.HTTP_200_OK)
 
 
