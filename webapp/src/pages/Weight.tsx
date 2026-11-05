@@ -110,7 +110,7 @@ export default function Weight() {
 
   return (
     <main className="p-4 pb-10">
-      <h1 className="text-xl font-semibold">Вес</h1>
+      <h1 className="page-title">Вес</h1>
 
       <div className="mt-4">
         <SliderField

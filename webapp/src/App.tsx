@@ -2,6 +2,7 @@ import { Suspense, lazy } from 'react'
 import { Navigate, Route, Routes, useLocation } from 'react-router'
 
 import ErrorBoundary from './components/ErrorBoundary'
+import Loader from './components/Loader'
 import { useSessionExpired } from './lib/session'
 
 import Home from './pages/Home'
@@ -30,7 +31,7 @@ export default function App() {
       )}
       {/* key: при переходе на другой экран ошибка прошлого экрана сбрасывается */}
       <ErrorBoundary key={location.pathname}>
-        <Suspense fallback={<p className="p-4 text-hint">Загрузка…</p>}>
+        <Suspense fallback={<Loader />}>
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/onboarding" element={<Onboarding />} />

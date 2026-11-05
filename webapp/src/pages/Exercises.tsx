@@ -134,7 +134,7 @@ export default function Exercises() {
 
   return (
     <main className="p-4 pb-10">
-      <h1 className="text-xl font-semibold">{pick ? 'Выберите упражнение' : 'Упражнения'}</h1>
+      <h1 className="page-title">{pick ? 'Выберите упражнение' : 'Упражнения'}</h1>
       <p className="mt-1 text-sm text-hint">
         {pick
           ? 'Значок «i» — как делать упражнение.'

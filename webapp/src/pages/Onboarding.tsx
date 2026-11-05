@@ -134,7 +134,7 @@ function OnboardingForm({ me, weightKg }: { me: Me; weightKg?: string }) {
 
   return (
     <main className="p-4 pb-10">
-      <h1 className="text-xl font-semibold">
+      <h1 className="page-title">
         {onboarded ? 'Профиль и цели' : 'Расскажите о себе'}
       </h1>
       <p className="mt-1 text-sm text-hint">

@@ -38,7 +38,7 @@ function GramsEdit({ item, grams0, onDone }: { item: MealItem; grams0: number; o
 
   return (
     <>
-      <h1 className="text-xl font-semibold">{item.name}</h1>
+      <h1 className="page-title">{item.name}</h1>
       <p className="mt-1 text-sm text-hint">Сейчас в дневнике: {fmtGrams(grams0)} г</p>
       <div className="mt-4">
         <SliderField
@@ -86,7 +86,7 @@ function QuickEdit({ item, onDone }: { item: MealItem; onDone: Done }) {
 
   return (
     <>
-      <h1 className="text-xl font-semibold">Быстрая запись</h1>
+      <h1 className="page-title">Быстрая запись</h1>
       <p className="mt-1 text-sm text-hint">КБЖУ всей порции.</p>
       <QuickFields name={name} onName={setName} raw={raw} onRaw={setRaw} />
       {save.isError && <p className="mt-4 text-sm text-destructive">Не получилось сохранить.</p>}

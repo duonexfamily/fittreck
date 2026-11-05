@@ -181,7 +181,7 @@ function FoodCreate({ onCreated }: { onCreated: (f: Food) => void }) {
 
   return (
     <>
-      <h1 className="text-xl font-semibold">Свой продукт</h1>
+      <h1 className="page-title">Свой продукт</h1>
       <p className="mt-1 text-sm text-hint">Значения на 100 г — их можно найти на упаковке.</p>
       <input
         value={name}
@@ -236,7 +236,7 @@ function QuickForm({ meal, date }: { meal: MealType; date: string }) {
 
   return (
     <>
-      <h1 className="text-xl font-semibold">Быстрая запись</h1>
+      <h1 className="page-title">Быстрая запись</h1>
       <p className="mt-1 text-sm text-hint">
         КБЖУ всей порции — например, из меню кафе. Название можно не писать.
       </p>
@@ -304,7 +304,7 @@ function PortionForm({ food, meal, date }: { food: Food; meal: MealType; date: s
   return (
     <>
       <div className="flex items-start justify-between gap-3">
-        <h1 className="text-xl font-semibold">{food.name}</h1>
+        <h1 className="page-title">{food.name}</h1>
         <FavoriteButton food={food} />
       </div>
       <p className="mt-1 text-sm text-hint">{fmtKcal(food.kcal)} ккал на 100 г</p>

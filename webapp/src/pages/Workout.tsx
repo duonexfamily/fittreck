@@ -451,7 +451,7 @@ export default function Workout() {
   return (
     <main className="p-4 pb-10">
       <div className="flex items-baseline justify-between gap-3">
-        <h1 className="text-xl font-semibold">{formatDay(w.date, today)}</h1>
+        <h1 className="page-title">{formatDay(w.date, today)}</h1>
         <span className={`text-sm ${w.status === 'done' ? 'text-hint' : 'text-link'}`}>
           {statusLabel}
         </span>
