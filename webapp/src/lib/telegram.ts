@@ -26,6 +26,7 @@ interface TelegramWebApp {
   BackButton: BackButton
   ready(): void
   expand(): void
+  openLink(url: string): void
   HapticFeedback: {
     impactOccurred(style: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft'): void
     notificationOccurred(type: 'error' | 'success' | 'warning'): void
@@ -52,6 +53,12 @@ export function initTelegram(): void {
 
 export function getInitData(): string {
   return webApp?.initData ?? ''
+}
+
+/** Внешняя ссылка: в Telegram — во встроенном браузере, Mini App остаётся открытым. */
+export function openLink(url: string): void {
+  if (webApp) webApp.openLink(url)
+  else window.open(url, '_blank', 'noopener')
 }
 
 export const haptic = {

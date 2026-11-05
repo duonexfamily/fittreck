@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useCallback, useState } from 'react'
+import { Suspense, lazy, useCallback, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
 
 import {
@@ -10,11 +10,14 @@ import {
   searchExercises,
 } from '../api/client'
 import ChoiceGroup from '../components/ChoiceGroup'
+import GuideButton from '../components/GuideButton'
 import { useBackButton } from '../hooks/useBackButton'
 import { useDebounced } from '../hooks/useDebounced'
 import { useMainButton } from '../hooks/useMainButton'
 import { EXERCISE_KINDS, KIND_LABELS, MUSCLE_GROUPS, MUSCLE_LABELS } from '../lib/workouts'
 import { haptic } from '../lib/telegram'
+
+const ExerciseGuide = lazy(() => import('../components/ExerciseGuide'))
 
 interface Filter {
   label: string
@@ -86,6 +89,8 @@ export default function Exercises() {
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<Filter>(FILTERS[0])
   const [creating, setCreating] = useState(false)
+  // Открытая карточка техники
+  const [guide, setGuide] = useState<Exercise | null>(null)
   const q = useDebounced(query.trim(), 300)
 
   const list = useQuery({
@@ -95,15 +100,22 @@ export default function Exercises() {
   })
 
   const back = useCallback(() => {
-    if (creating) setCreating(false)
+    if (guide) setGuide(null)
+    else if (creating) setCreating(false)
     else navigate(pick ? `/workouts/${pick}` : '/workouts', { replace: true })
-  }, [creating, navigate, pick])
+  }, [guide, creating, navigate, pick])
   useBackButton(back)
 
   const select = (e: Exercise) => {
     haptic.select()
     if (pick) navigate(`/workouts/${pick}`, { replace: true, state: { exercise: e } })
   }
+
+  const openGuide = (e: Exercise) => {
+    haptic.select()
+    setGuide(e)
+  }
+  const closeGuide = useCallback(() => setGuide(null), [])
 
   const onCreated = async (e: Exercise) => {
     haptic.success()
@@ -123,6 +135,11 @@ export default function Exercises() {
   return (
     <main className="p-4 pb-10">
       <h1 className="text-xl font-semibold">{pick ? 'Выберите упражнение' : 'Упражнения'}</h1>
+      <p className="mt-1 text-sm text-hint">
+        {pick
+          ? 'Значок «i» — как делать упражнение.'
+          : 'Нажмите на упражнение, чтобы посмотреть технику.'}
+      </p>
       <input
         type="search"
         value={query}
@@ -168,18 +185,15 @@ export default function Exercises() {
               </>
             )
             return (
-              <li key={e.id}>
-                {pick ? (
-                  <button
-                    type="button"
-                    onClick={() => select(e)}
-                    className="flex w-full items-baseline justify-between gap-3 py-3 text-left"
-                  >
-                    {body}
-                  </button>
-                ) : (
-                  <div className="flex items-baseline justify-between gap-3 py-3">{body}</div>
-                )}
+              <li key={e.id} className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => (pick ? select(e) : openGuide(e))}
+                  className="flex min-w-0 flex-1 items-baseline justify-between gap-3 py-3 text-left"
+                >
+                  {body}
+                </button>
+                {pick && <GuideButton name={e.name} onClick={() => openGuide(e)} />}
               </li>
             )
           })}
@@ -196,6 +210,12 @@ export default function Exercises() {
       >
         + Своё упражнение
       </button>
+
+      {guide && (
+        <Suspense fallback={null}>
+          <ExerciseGuide exercise={guide} onClose={closeGuide} />
+        </Suspense>
+      )}
     </main>
   )
 }
