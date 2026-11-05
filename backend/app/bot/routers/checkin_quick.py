@@ -76,7 +76,9 @@ async def on_checkin_button(
         streak = await streaks.get_streak(session, user)
         await message.edit_text(
             checkin_done_text(values, streak.current),
-            reply_markup=checkin_done_keyboard(day, webapp_url),
+            reply_markup=checkin_done_keyboard(
+                day, webapp_url, has_sleep_time=checkin.bed_time is not None
+            ),
         )
     else:
         question, _ = CHECKIN_STEPS[following]

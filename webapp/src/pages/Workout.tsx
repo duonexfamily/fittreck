@@ -68,7 +68,7 @@ function SetForm({
     <div className="mt-2 grid gap-2">
       {exercise.kind === 'strength' ? (
         <>
-          <NumberInput label="Повторения" placeholder="10" {...field('reps')} />
+          <NumberInput label="Повторения" placeholder="—" {...field('reps')} />
           <NumberInput label="Вес, кг" placeholder="без веса" {...field('weight')} />
         </>
       ) : (

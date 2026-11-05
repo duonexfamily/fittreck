@@ -136,12 +136,14 @@ def checkin_step_keyboard(field: str, day: date, webapp_url: str | None) -> Inli
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-def checkin_done_keyboard(day: date, webapp_url: str | None) -> InlineKeyboardMarkup | None:
+def checkin_done_keyboard(
+    day: date, webapp_url: str | None, has_sleep_time: bool = False
+) -> InlineKeyboardMarkup | None:
     if not webapp_url:
         return None
-    return InlineKeyboardMarkup(
-        inline_keyboard=[[_checkin_app_button(webapp_url, day, "🕒 Добавить время сна")]]
-    )
+    # Время сна уже есть (например, из Mini App) — не предлагаем добавить его снова
+    text = "📝 Подробнее в приложении" if has_sleep_time else "🕒 Добавить время сна"
+    return InlineKeyboardMarkup(inline_keyboard=[[_checkin_app_button(webapp_url, day, text)]])
 
 
 def checkin_done_text(values: Mapping[str, int | None], streak: int = 0) -> str:
